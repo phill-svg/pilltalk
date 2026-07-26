@@ -49,7 +49,12 @@ export class DmManager {
   private onDirectChannelOpen(peerPubkey: string, channel: DataChannelLike): void {
     this.directChannels.set(peerPubkey, channel);
     channel.onmessage = (ev) => {
-      const parsed = JSON.parse(ev.data) as { content: string; createdAt: number };
+      let parsed: { content: string; createdAt: number };
+      try {
+        parsed = JSON.parse(ev.data) as { content: string; createdAt: number };
+      } catch {
+        return;
+      }
       this.onMessage(peerPubkey, { fromPubkey: peerPubkey, content: parsed.content, createdAt: parsed.createdAt });
     };
     channel.onclose = () => this.directChannels.delete(peerPubkey);
@@ -64,7 +69,13 @@ export class DmManager {
     }
     const isSignal = rumor.tags.some((t) => t[0] === 't' && t[1] === WEBRTC_SIGNAL_TAG);
     if (isSignal) {
-      void this.signaling.handleSignal(rumor.pubkey, JSON.parse(rumor.content) as SignalPayload);
+      let payload: SignalPayload;
+      try {
+        payload = JSON.parse(rumor.content) as SignalPayload;
+      } catch {
+        return;
+      }
+      this.signaling.handleSignal(rumor.pubkey, payload).catch(() => {});
       return;
     }
     if (rumor.kind !== KIND_DM_RUMOR) return;
@@ -80,7 +91,7 @@ export class DmManager {
     this.sendRumor(recipientPubkey, content, []);
     if (!this.attemptedDirectConnect.has(recipientPubkey)) {
       this.attemptedDirectConnect.add(recipientPubkey);
-      void this.signaling.initiate(recipientPubkey);
+      this.signaling.initiate(recipientPubkey).catch(() => {});
     }
   }
 

@@ -6,6 +6,7 @@ import { secp256k1 } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
 import { getPublicKey } from '../nostr/event';
 import type { PeerConnectionLike, DataChannelLike } from '../webrtc/signaling';
+import { createGiftWrap, KIND_GIFT_WRAP, KIND_DM_RUMOR } from './giftWrap';
 
 function randomKeyHex(): string {
   return bytesToHex(secp256k1.utils.randomPrivateKey());
@@ -60,8 +61,7 @@ class FakePeerConnection implements PeerConnectionLike {
 }
 
 async function flushMicrotasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('DmManager', () => {
@@ -148,5 +148,52 @@ describe('DmManager', () => {
       alicePub,
       expect.objectContaining({ content: 'second message, should go direct' }),
     );
+  });
+
+  it('silently drops a gift-wrap event with a forged/invalid signature instead of delivering or throwing', () => {
+    const pool = createInMemoryRelayPool();
+    const bobPriv = randomKeyHex();
+    const bobPub = getPublicKey(bobPriv);
+
+    const bobOnMessage = vi.fn();
+    const bob = new DmManager(pool, bobPriv, bobPub, bobOnMessage, () => new FakePeerConnection());
+    bob.start();
+
+    // Build a legitimate-looking gift wrap addressed to bob, then corrupt its
+    // signature so it fails verifyEvent's signature check inside openGiftWrap.
+    const attackerPriv = randomKeyHex();
+    const forgedWrap = createGiftWrap(
+      { pubkey: getPublicKey(attackerPriv), created_at: Math.floor(Date.now() / 1000), kind: KIND_DM_RUMOR, tags: [['p', bobPub]], content: 'forged' },
+      attackerPriv,
+      bobPub,
+    );
+    expect(forgedWrap.kind).toBe(KIND_GIFT_WRAP);
+    const flippedChar = forgedWrap.sig[0] === '0' ? '1' : '0';
+    const tamperedWrap = { ...forgedWrap, sig: flippedChar + forgedWrap.sig.slice(1) };
+
+    expect(() => pool.publish(tamperedWrap)).not.toThrow();
+    expect(bobOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not deliver a message to a peer it was not addressed to', () => {
+    const pool = createInMemoryRelayPool();
+    const alicePriv = randomKeyHex();
+    const alicePub = getPublicKey(alicePriv);
+    const bobPriv = randomKeyHex();
+    const bobPub = getPublicKey(bobPriv);
+    const carolPriv = randomKeyHex();
+    const carolPub = getPublicKey(carolPriv);
+
+    const carolOnMessage = vi.fn();
+    const alice = new DmManager(pool, alicePriv, alicePub, () => {}, () => new FakePeerConnection());
+    const bob = new DmManager(pool, bobPriv, bobPub, () => {}, () => new FakePeerConnection());
+    const carol = new DmManager(pool, carolPriv, carolPub, carolOnMessage, () => new FakePeerConnection());
+    alice.start();
+    bob.start();
+    carol.start();
+
+    alice.sendMessage(bobPub, 'private to bob');
+
+    expect(carolOnMessage).not.toHaveBeenCalled();
   });
 });
