@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PillTalk</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 1rem; }
+      section { border: 1px solid #ccc; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; }
+      .geohash-message, .dm-message { padding: 0.25rem 0; }
+      .dm-message.own { text-align: right; color: #2a6; }
+      form { display: flex; gap: 0.5rem; }
+      input[type="text"] { flex: 1; }
+      #messages, #dm-messages { max-height: 240px; overflow-y: auto; margin-bottom: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>PillTalk</strong>
+      <span id="pubkey-label"></span>
+      <button id="wipe-button" type="button">Wipe</button>
+    </header>
+    <section>
+      <h2>Geohash room: <span id="geohash-label"></span> (<span id="participant-count"></span>)</h2>
+      <div id="messages"></div>
+      <form id="geohash-form">
+        <input id="geohash-input" type="text" placeholder="Message the room" required maxlength="500" />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+    <section>
+      <h2>Direct message (<span id="dm-transport"></span>)</h2>
+      <input id="dm-recipient" type="text" placeholder="Recipient pubkey (hex)" />
+      <div id="dm-messages"></div>
+      <form id="dm-form">
+        <input id="dm-input" type="text" placeholder="Message" required maxlength="500" />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
