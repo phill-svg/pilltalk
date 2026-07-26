@@ -1,3 +1,13 @@
 name = "pilltalk"
 compatibility_date = "2026-07-26"
 pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "PUSH_SUBSCRIPTIONS"
+id = "677b65179a6b48dc997d7430d30ab99b"
+
+[vars]
+VAPID_PUBLIC_KEY = "BF2W4d6odiT3YCOnNPVgOsPLF89gyChQQ-guMEdOIYKnsY1cOG614iI0YD3fTUC1ixtmdA5IOeL92sEFARQZXg0"
+VAPID_SUBJECT = "mailto:phill@tcbpestcontrolcanberra.com.au"
+# VAPID_PRIVATE_KEY_JWK is a secret, not committed here -- set via:
+#   npx wrangler pages secret put VAPID_PRIVATE_KEY_JWK --project-name=pilltalk
