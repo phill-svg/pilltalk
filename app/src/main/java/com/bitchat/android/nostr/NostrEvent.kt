@@ -213,9 +213,14 @@ object NostrKind {
     const val DIRECT_MESSAGE = 14     // NIP-17 direct message (unsigned)
     const val FILE_MESSAGE = 15       // NIP-17 file message (unsigned)
     const val SEAL = 13              // NIP-17 sealed event
-    const val GIFT_WRAP = 1059       // NIP-17 gift wrap
-    const val EPHEMERAL_EVENT = 20000 // For geohash channels
-    const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
+    // PillTalk-specific kind numbers (deliberately different from upstream
+    // bitchat-android's 1059/20000/20001) so PillTalk's geohash rooms and DMs
+    // form a genuinely separate network -- not mixed in with real bitchat
+    // users on the same public relays. Matches the same change already made
+    // in the pilltalk iOS and web apps.
+    const val GIFT_WRAP = 7059       // was NIP-59's standard 1059 in upstream bitchat-android
+    const val EPHEMERAL_EVENT = 21000 // was 20000 in upstream bitchat-android; for geohash channels
+    const val GEOHASH_PRESENCE = 21001 // was 20001 in upstream bitchat-android; for geohash presence heartbeat
 }
 
 /**
