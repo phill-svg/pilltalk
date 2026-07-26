@@ -57,7 +57,16 @@ export class DmManager {
       }
       this.onMessage(peerPubkey, { fromPubkey: peerPubkey, content: parsed.content, createdAt: parsed.createdAt });
     };
-    channel.onclose = () => this.directChannels.delete(peerPubkey);
+    // WebRtcSignaling.wireChannel already set channel.onclose to clean up its
+    // own connections/channels maps for this peer. Chain rather than
+    // overwrite so both DmManager's and WebRtcSignaling's internal state get
+    // cleaned up when the channel closes - otherwise WebRtcSignaling's maps
+    // accumulate stale entries for closed connections over a long session.
+    const priorOnClose = channel.onclose;
+    channel.onclose = () => {
+      priorOnClose?.();
+      this.directChannels.delete(peerPubkey);
+    };
   }
 
   private handleGiftWrap(event: NostrEvent): void {

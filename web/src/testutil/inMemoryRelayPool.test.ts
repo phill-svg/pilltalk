@@ -58,4 +58,20 @@ describe('createInMemoryRelayPool', () => {
 
     expect(onEvent).not.toHaveBeenCalled();
   });
+
+  it('does not let a throwing subscriber prevent delivery to other subscribers', () => {
+    const pool = createInMemoryRelayPool();
+    const throwingHandler = vi.fn(() => {
+      throw new Error('subscriber blew up');
+    });
+    const healthyHandler = vi.fn();
+    pool.subscribe({}, throwingHandler);
+    pool.subscribe({}, healthyHandler);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(() => pool.publish(fakeEvent())).not.toThrow();
+    expect(throwingHandler).toHaveBeenCalledTimes(1);
+    expect(healthyHandler).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
 });

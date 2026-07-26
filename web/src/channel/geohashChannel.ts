@@ -1,6 +1,6 @@
 import type { RelayPoolLike } from '../relay/relayPool';
 import type { NostrEvent, UnsignedEvent } from '../nostr/event';
-import { getPublicKey, signEvent } from '../nostr/event';
+import { getPublicKey, signEvent, verifyEvent } from '../nostr/event';
 import { broadcastsPresence, deriveGeohashKey } from '../geohash/geohash';
 
 export const KIND_GEOHASH_CHAT = 20000;
@@ -55,6 +55,7 @@ export class GeohashChannel {
   }
 
   private handleEvent(event: NostrEvent): void {
+    if (!verifyEvent(event)) return; // drop silently: unverifiable events are never trusted
     if (event.pubkey !== this.ephemeralPublicKey) {
       this.lastSeen.set(event.pubkey, event.created_at * 1000);
     }

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GeohashChannel, KIND_GEOHASH_CHAT, KIND_GEOHASH_PRESENCE } from './geohashChannel';
 import { createInMemoryRelayPool } from '../testutil/inMemoryRelayPool';
+import { signEvent, getPublicKey, type UnsignedEvent } from '../nostr/event';
+import { deriveGeohashKey } from '../geohash/geohash';
 
 const MASTER_KEY = 'a'.repeat(64);
 
@@ -71,5 +73,36 @@ describe('GeohashChannel', () => {
     expect(listener.getParticipantCount()).toEqual({ count: 1, exact: true });
     now += 6 * 60 * 1000;
     expect(listener.getParticipantCount()).toEqual({ count: 0, exact: true });
+  });
+
+  it('silently drops an incoming chat event with a tampered/invalid signature', () => {
+    const pool = createInMemoryRelayPool();
+    const onMessage = vi.fn();
+    const channel = new GeohashChannel(pool, MASTER_KEY, 'u4pru', onMessage);
+    channel.join();
+
+    // Build a validly-shaped, validly-tagged event for this geohash, signed by
+    // a forger's own ephemeral key, then flip a character of its signature so
+    // it fails verifyEvent - it should never reach onMessage or count towards
+    // presence, even though its geohash tag and shape are perfectly valid.
+    const forgerPrivateKey = deriveGeohashKey('f'.repeat(64), 'u4pru');
+    const forgerPublicKey = getPublicKey(forgerPrivateKey);
+    const unsigned: UnsignedEvent = {
+      pubkey: forgerPublicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: KIND_GEOHASH_CHAT,
+      tags: [
+        ['g', 'u4pru'],
+        ['n', 'forger'],
+      ],
+      content: 'forged message',
+    };
+    const properlySigned = signEvent(unsigned, forgerPrivateKey);
+    const flippedChar = properlySigned.sig[0] === '0' ? '1' : '0';
+    const tamperedEvent = { ...properlySigned, sig: flippedChar + properlySigned.sig.slice(1) };
+
+    expect(() => pool.publish(tamperedEvent)).not.toThrow();
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(channel.getParticipantCount()).toEqual({ count: 0, exact: true });
   });
 });

@@ -29,7 +29,12 @@ export function createInMemoryRelayPool(): RelayPoolLike {
     },
     publish(event) {
       for (const sub of subscriptions.values()) {
-        if (matchesFilter(sub.filter, event)) sub.onEvent(event);
+        if (!matchesFilter(sub.filter, event)) continue;
+        try {
+          sub.onEvent(event);
+        } catch (err) {
+          console.error('createInMemoryRelayPool: subscriber onEvent threw', err);
+        }
       }
     },
   };
