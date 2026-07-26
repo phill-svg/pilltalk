@@ -3,6 +3,7 @@ import type { RelayFilter, RelayPoolLike } from '../relay/relayPool';
 
 function matchesFilter(filter: RelayFilter, event: NostrEvent): boolean {
   if (filter.kinds && !filter.kinds.includes(event.kind)) return false;
+  if (filter.since !== undefined && event.created_at < filter.since) return false;
   if (filter['#g']) {
     const geohashes = event.tags.filter((t) => t[0] === 'g').map((t) => t[1]);
     if (!filter['#g'].some((g) => geohashes.includes(g))) return false;

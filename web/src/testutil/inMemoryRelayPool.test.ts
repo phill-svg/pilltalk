@@ -38,6 +38,17 @@ describe('createInMemoryRelayPool', () => {
     expect(onGeohash).toHaveBeenCalledTimes(1);
   });
 
+  it('only delivers events at or after the since timestamp', () => {
+    const pool = createInMemoryRelayPool();
+    const onEvent = vi.fn();
+    pool.subscribe({ since: 1700000000 }, onEvent);
+    pool.publish(fakeEvent({ created_at: 1699999999 }));
+    pool.publish(fakeEvent({ created_at: 1700000000 }));
+    pool.publish(fakeEvent({ created_at: 1700000001 }));
+
+    expect(onEvent).toHaveBeenCalledTimes(2);
+  });
+
   it('stops delivering events after unsubscribe', () => {
     const pool = createInMemoryRelayPool();
     const onEvent = vi.fn();

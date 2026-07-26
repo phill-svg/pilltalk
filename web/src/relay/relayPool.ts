@@ -35,6 +35,25 @@ const MAX_SEEN_IDS = 5000;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isValidNostrEvent(event: unknown): event is NostrEvent {
+  if (!event || typeof event !== 'object') return false;
+  const e = event as Record<string, unknown>;
+  return (
+    typeof e.id === 'string' &&
+    typeof e.pubkey === 'string' &&
+    typeof e.created_at === 'number' &&
+    typeof e.kind === 'number' &&
+    Array.isArray(e.tags) &&
+    e.tags.every(isStringArray) &&
+    typeof e.content === 'string' &&
+    typeof e.sig === 'string'
+  );
+}
+
 export class RelayPool implements RelayPoolLike {
   private sockets = new Map<string, MinimalWebSocket>();
   private reconnectAttempts = new Map<string, number>();
@@ -42,7 +61,7 @@ export class RelayPool implements RelayPoolLike {
   private seenEventIds = new Set<string>();
   private nextSubId = 0;
 
-  constructor(private urls: string[], private wsFactory: WebSocketFactory) {
+  constructor(urls: string[], private wsFactory: WebSocketFactory) {
     for (const url of urls) this.connect(url);
   }
 
@@ -73,15 +92,24 @@ export class RelayPool implements RelayPoolLike {
       return;
     }
     if (!Array.isArray(parsed) || parsed[0] !== 'EVENT') return;
-    const [, subId, event] = parsed as [string, string, NostrEvent];
-    if (!event || typeof event.id !== 'string') return;
+    const [, subId, event] = parsed as [string, string, unknown];
+    if (!isValidNostrEvent(event)) {
+      console.error('RelayPool: dropping malformed event', event);
+      return;
+    }
     if (this.seenEventIds.has(event.id)) return;
     this.seenEventIds.add(event.id);
     if (this.seenEventIds.size > MAX_SEEN_IDS) {
       const oldest = this.seenEventIds.values().next().value;
       if (oldest !== undefined) this.seenEventIds.delete(oldest);
     }
-    this.subscriptions.get(subId)?.onEvent(event);
+    const sub = this.subscriptions.get(subId);
+    if (!sub) return;
+    try {
+      sub.onEvent(event);
+    } catch (err) {
+      console.error('RelayPool: subscriber onEvent threw', err);
+    }
   }
 
   private sendSubscribe(ws: MinimalWebSocket, sub: Subscription): void {
