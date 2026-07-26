@@ -43,6 +43,13 @@ const MAX_PLAINTEXT_LEN = 65535;
 // itself ranges 34..65538.
 const MIN_PAYLOAD_LEN = 1 + 32 + 34 + 32; // 99
 const MAX_PAYLOAD_LEN = 1 + 32 + 65538 + 32; // 65603
+// Base64-STRING length bounds corresponding to the byte bounds above, so an
+// oversized/malformed payloadBase64 can be rejected before atob() decodes
+// the entire (attacker-controlled) string into memory. Base64 encodes 3
+// bytes as 4 characters, rounded up to the next multiple of 4 (padding
+// included): length = ceil(byteLen / 3) * 4.
+const MIN_PAYLOAD_BASE64_LEN = Math.ceil(MIN_PAYLOAD_LEN / 3) * 4; // 132
+const MAX_PAYLOAD_BASE64_LEN = Math.ceil(MAX_PAYLOAD_LEN / 3) * 4; // 87472
 
 export function calcPaddedLen(unpaddedLen: number): number {
   if (unpaddedLen <= 32) return 32;
@@ -117,6 +124,17 @@ export function nip44Encrypt(plaintext: string, senderPrivateKeyHex: string, rec
 // private/public keypair that produces a given conversation key is
 // infeasible, since conversationKey() is one-way ECDH+HKDF).
 export function decryptWithConversationKey(payloadBase64: string, conversationKeyBytes: Uint8Array): string {
+  // Check the base64 STRING length before decoding. payloadBase64 is
+  // attacker-controlled (e.g. arbitrary gift-wrap content from any relay or
+  // peer), so an unbounded-size malicious string must be rejected cheaply
+  // here rather than fully decoded via atob() first. (The reference
+  // implementation additionally special-cases a leading '#' character as a
+  // documented future-version sentinel; that's skipped here because atob()
+  // already throws on '#' as an invalid base64 character, so it's covered
+  // by this same length/atob combination without duplicating the check.)
+  if (payloadBase64.length < MIN_PAYLOAD_BASE64_LEN || payloadBase64.length > MAX_PAYLOAD_BASE64_LEN) {
+    throw new Error('nip44: invalid payload length');
+  }
   const payload = Uint8Array.from(atob(payloadBase64), (c) => c.charCodeAt(0));
   if (payload.length < MIN_PAYLOAD_LEN || payload.length > MAX_PAYLOAD_LEN) {
     throw new Error('nip44: invalid payload length');

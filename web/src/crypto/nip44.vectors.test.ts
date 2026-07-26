@@ -147,6 +147,36 @@ describe('NIP-44 v2 official vectors: decrypt (invalid)', () => {
   });
 });
 
+describe('decryptWithConversationKey: oversized payload rejection', () => {
+  // giftWrap.ts calls nip44Decrypt on attacker-controlled content from any
+  // relay or peer. Before this check existed, decryptWithConversationKey
+  // called atob() on the entire payloadBase64 string (fully decoding it
+  // into memory) before any length bound was checked. Confirm that a
+  // grossly oversized base64 string is now rejected by the cheap
+  // string-length guard, before atob()/MAC/crypto logic ever runs - i.e.
+  // it throws the length-validation error, not a MAC-failure error.
+  it('rejects a multi-megabyte base64 string immediately, before decode', () => {
+    const key = new Uint8Array(32);
+    // Valid base64 alphabet, length a multiple of 4, several MB long - far
+    // beyond MAX_PAYLOAD_BASE64_LEN (87472 chars for the 65603-byte max
+    // payload), so it decodes to something far bigger than any legal
+    // NIP-44 payload could ever be.
+    const oversized = 'A'.repeat(8 * 1024 * 1024);
+    expect(() => decryptWithConversationKey(oversized, key)).toThrow('nip44: invalid payload length');
+  });
+
+  it('rejects via nip44Decrypt too (the attacker-facing entry point)', () => {
+    const receiverPrivateKeyHex = '0000000000000000000000000000000000000000000000000000000000000001';
+    const senderPublicKeyHex = getPublicKey(
+      '0000000000000000000000000000000000000000000000000000000000000002'
+    );
+    const oversized = 'A'.repeat(8 * 1024 * 1024);
+    expect(() => nip44Decrypt(oversized, receiverPrivateKeyHex, senderPublicKeyHex)).toThrow(
+      'nip44: invalid payload length'
+    );
+  });
+});
+
 describe('NIP-44 v2 official vectors: encrypt_msg_lengths (invalid)', () => {
   // Byte lengths that MUST be rejected by encryption: 0 (empty) and
   // anything over the 65535-byte max plaintext size.
