@@ -14,11 +14,17 @@ export type DmTransport = 'relay' | 'direct';
 
 const WEBRTC_SIGNAL_TAG = 'webrtc-signal';
 
+// A WebRTC upgrade attempt is retried at most this often per peer. This
+// covers both "the first attempt failed (peer offline, ICE failed)" and
+// "a previously-open direct channel later closed" uniformly, without
+// DmManager needing to know anything about presence or geohash channels.
+export const WEBRTC_RETRY_COOLDOWN_MS = 30_000;
+
 export class DmManager {
   private unsubscribe: (() => void) | null = null;
   private signaling: WebRtcSignaling;
   private directChannels = new Map<string, DataChannelLike>();
-  private attemptedDirectConnect = new Set<string>();
+  private lastDirectConnectAttempt = new Map<string, number>();
 
   constructor(
     private pool: RelayPoolLike,
@@ -26,6 +32,7 @@ export class DmManager {
     private identityPublicKeyHex: string,
     private onMessage: (peerPubkey: string, message: ChatMessage) => void,
     createPeerConnection: PeerConnectionFactory,
+    private now: () => number = () => Date.now(),
   ) {
     this.signaling = new WebRtcSignaling(
       createPeerConnection,
@@ -98,8 +105,10 @@ export class DmManager {
       return;
     }
     this.sendRumor(recipientPubkey, content, []);
-    if (!this.attemptedDirectConnect.has(recipientPubkey)) {
-      this.attemptedDirectConnect.add(recipientPubkey);
+    const lastAttempt = this.lastDirectConnectAttempt.get(recipientPubkey);
+    const cooldownElapsed = lastAttempt === undefined || this.now() - lastAttempt > WEBRTC_RETRY_COOLDOWN_MS;
+    if (cooldownElapsed) {
+      this.lastDirectConnectAttempt.set(recipientPubkey, this.now());
       this.signaling.initiate(recipientPubkey).catch(() => {});
     }
   }

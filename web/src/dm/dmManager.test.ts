@@ -1,6 +1,6 @@
 // web/src/dm/dmManager.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { DmManager } from './dmManager';
+import { DmManager, WEBRTC_RETRY_COOLDOWN_MS } from './dmManager';
 import { createInMemoryRelayPool } from '../testutil/inMemoryRelayPool';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
@@ -173,6 +173,102 @@ describe('DmManager', () => {
 
     expect(() => pool.publish(tamperedWrap)).not.toThrow();
     expect(bobOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('retries the WebRTC direct-channel upgrade after the cooldown when the first attempt never opened', async () => {
+    const pool = createInMemoryRelayPool();
+    const alicePriv = randomKeyHex();
+    const alicePub = getPublicKey(alicePriv);
+    const bobPriv = randomKeyHex();
+    const bobPub = getPublicKey(bobPriv);
+
+    const aliceConnections: FakePeerConnection[] = [];
+    let now = 1_700_000_000_000;
+
+    const alice = new DmManager(
+      pool,
+      alicePriv,
+      alicePub,
+      () => {},
+      () => {
+        const pc = new FakePeerConnection();
+        aliceConnections.push(pc);
+        return pc;
+      },
+      () => now,
+    );
+    // No bob DmManager is started, so alice's offer is never answered and her
+    // FakePeerConnection's data channel never opens - simulating a peer that
+    // is offline or an ICE handshake that never completes.
+    alice.start();
+
+    alice.sendMessage(bobPub, 'first message');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(1);
+
+    // Still within the cooldown window: no second attempt.
+    now += 29_000;
+    alice.sendMessage(bobPub, 'second message, still within cooldown');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(1);
+
+    // Past the cooldown window: alice gets another shot at upgrading.
+    now += 2_000; // total elapsed: 31s
+    alice.sendMessage(bobPub, 'third message, past cooldown');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(2);
+  });
+
+  it('never re-attempts a WebRTC upgrade once a direct channel is open for that peer', async () => {
+    const pool = createInMemoryRelayPool();
+    const alicePriv = randomKeyHex();
+    const alicePub = getPublicKey(alicePriv);
+    const bobPriv = randomKeyHex();
+    const bobPub = getPublicKey(bobPriv);
+
+    const aliceConnections: FakePeerConnection[] = [];
+    const bobConnections: FakePeerConnection[] = [];
+    let now = 1_700_000_000_000;
+
+    const alice = new DmManager(
+      pool,
+      alicePriv,
+      alicePub,
+      () => {},
+      () => {
+        const pc = new FakePeerConnection();
+        aliceConnections.push(pc);
+        return pc;
+      },
+      () => now,
+    );
+    const bob = new DmManager(pool, bobPriv, bobPub, () => {}, () => {
+      const pc = new FakePeerConnection();
+      bobConnections.push(pc);
+      return pc;
+    });
+    alice.start();
+    bob.start();
+
+    alice.sendMessage(bobPub, 'first message');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(1);
+
+    const aliceChannel = aliceConnections[0]!.channel as FakeDataChannel;
+    const bobChannel = bobConnections[0]!.channel as FakeDataChannel;
+    aliceChannel.simulateOpen();
+    bobChannel.simulateOpen();
+    expect(alice.getTransport(bobPub)).toBe('direct');
+
+    // Advance well past the cooldown and send many more messages - since the
+    // direct channel is open, sendMessage returns early via the channel.send
+    // path and never reaches the WebRTC-retry branch at all.
+    now += 10 * WEBRTC_RETRY_COOLDOWN_MS;
+    alice.sendMessage(bobPub, 'second message, should go direct');
+    alice.sendMessage(bobPub, 'third message, should go direct');
+    await flushMicrotasks();
+
+    expect(aliceConnections).toHaveLength(1);
   });
 
   it('does not deliver a message to a peer it was not addressed to', () => {
