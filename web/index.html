@@ -125,6 +125,39 @@
         color: var(--bone-dim);
       }
 
+      .channel-head-left {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .room-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .room-switch input.readout {
+        width: 88px;
+        margin-left: 0;
+      }
+      .room-switch input.readout.is-invalid { border-color: var(--rust); color: var(--rust); }
+      .room-switch button {
+        appearance: none;
+        background: transparent;
+        border: 1px solid var(--line-bright);
+        color: var(--bone-dim);
+        font-family: var(--display);
+        font-size: 0.64rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.18rem 0.4rem;
+        cursor: pointer;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+      .room-switch button:hover { border-color: var(--amber); color: var(--amber); }
+      .room-switch button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
       .readout {
         font-family: var(--mono);
         color: var(--amber);
@@ -325,7 +358,13 @@
       </header>
       <section class="panel">
         <h2 class="panel-head">
-          Channel<span class="readout" id="geohash-label"></span>
+          <span class="channel-head-left">
+            Channel
+            <form id="room-switch-form" class="room-switch">
+              <input class="readout" id="geohash-label" type="text" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Geohash room code" />
+              <button type="submit">Join</button>
+            </form>
+          </span>
           <span class="status"><span class="signal-bars" id="channel-signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="participant-count"></span></span>
         </h2>
         <div id="messages" class="log"></div>

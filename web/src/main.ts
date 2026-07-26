@@ -25,6 +25,12 @@ function shortPubkey(pubkey: string): string {
   return pubkey.slice(0, 8);
 }
 
+const GEOHASH_PATTERN = /^[0-9b-hjkmnp-z]{1,12}$/i;
+
+function isValidGeohash(value: string): boolean {
+  return GEOHASH_PATTERN.test(value);
+}
+
 async function currentGeohash(): Promise<string> {
   if (!navigator.geolocation) return DEFAULT_GEOHASH;
   return new Promise((resolve) => {
@@ -53,11 +59,12 @@ async function main(): Promise<void> {
   const pool = new RelayPool(RELAY_URLS, (url) => new WebSocket(url) as unknown as MinimalWebSocket);
 
   // --- Geohash room ---
-  const geohash = await currentGeohash();
-  byId('geohash-label').textContent = geohash;
   const messagesEl = byId('messages');
   const participantCountEl = byId('participant-count');
   const channelSignalEl = byId('channel-signal');
+  const geohashLabelInput = byId<HTMLInputElement>('geohash-label');
+
+  let channel: GeohashChannel;
 
   function updateChannelSignal(): void {
     const count = channel.getParticipantCount();
@@ -65,12 +72,19 @@ async function main(): Promise<void> {
     channelSignalEl.dataset.level = count.exact ? String(Math.min(count.count, 4)) : 'unknown';
   }
 
-  const channel = new GeohashChannel(pool, identity.privateKeyHex, geohash, (message) => {
-    appendGeohashMessage(messagesEl, message);
+  function joinChannel(newGeohash: string): void {
+    channel?.leave();
+    messagesEl.innerHTML = '';
+    geohashLabelInput.value = newGeohash;
+    channel = new GeohashChannel(pool, identity.privateKeyHex, newGeohash, (message) => {
+      appendGeohashMessage(messagesEl, message);
+      updateChannelSignal();
+    });
+    channel.join();
     updateChannelSignal();
-  });
-  channel.join();
-  updateChannelSignal();
+  }
+
+  joinChannel(await currentGeohash());
 
   byId<HTMLFormElement>('geohash-form').addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -78,6 +92,17 @@ async function main(): Promise<void> {
     if (!input.value.trim()) return;
     channel.sendMessage(input.value, identity.publicKeyHex.slice(0, 8));
     input.value = '';
+  });
+
+  byId<HTMLFormElement>('room-switch-form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const value = geohashLabelInput.value.trim().toLowerCase();
+    if (!isValidGeohash(value)) {
+      geohashLabelInput.classList.add('is-invalid');
+      setTimeout(() => geohashLabelInput.classList.remove('is-invalid'), 900);
+      return;
+    }
+    joinChannel(value);
   });
 
   // --- Contacts + direct messages ---
