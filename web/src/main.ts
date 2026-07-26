@@ -6,6 +6,7 @@ import { DmManager } from './dm/dmManager';
 import type { PeerConnectionLike } from './webrtc/signaling';
 import { loadContacts, upsertContact, findContact, type Contact } from './contacts/contacts';
 import { appendGeohashMessage, appendDmMessage, renderParticipantCount, renderTransport } from './ui/render';
+import { isPushSupported, isPushEnabled, enablePush, notifyPeer } from './push/push';
 
 const RELAY_URLS = [
   'wss://relay.damus.io',
@@ -55,6 +56,23 @@ async function main(): Promise<void> {
       }, 1200);
     });
   });
+
+  const notifyButton = byId<HTMLButtonElement>('notify-button');
+  if (!isPushSupported()) {
+    notifyButton.disabled = true;
+    notifyButton.textContent = 'Notify: unsupported';
+  } else {
+    if (await isPushEnabled()) {
+      notifyButton.textContent = 'Notify: on';
+      notifyButton.classList.add('is-on');
+    }
+    notifyButton.addEventListener('click', () => {
+      void enablePush(identity.publicKeyHex).then((enabled) => {
+        notifyButton.textContent = enabled ? 'Notify: on' : 'Notify: blocked';
+        notifyButton.classList.toggle('is-on', enabled);
+      });
+    });
+  }
 
   const pool = new RelayPool(RELAY_URLS, (url) => new WebSocket(url) as unknown as MinimalWebSocket);
 
@@ -219,6 +237,7 @@ async function main(): Promise<void> {
     ev.preventDefault();
     if (!activeRecipient || !dmInput.value.trim()) return;
     dmManager.sendMessage(activeRecipient, dmInput.value);
+    notifyPeer(activeRecipient);
     appendDmMessage(dmMessagesEl, { fromPubkey: identity.publicKeyHex, content: dmInput.value, createdAt: Date.now() / 1000 }, true, 'You');
     updateDmSignal();
     dmInput.value = '';

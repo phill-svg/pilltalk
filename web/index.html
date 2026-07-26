@@ -89,6 +89,30 @@
       .id-chip:hover { border-color: var(--amber); color: var(--amber); }
       .id-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      button#notify-button {
+        appearance: none;
+        background: transparent;
+        border: 1px solid var(--line-bright);
+        color: var(--bone-dim);
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        font-weight: 700;
+        padding: 0.4rem 0.65rem;
+        cursor: pointer;
+        flex: none;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+      button#notify-button:hover { border-color: var(--verdigris); color: var(--verdigris); }
+      button#notify-button.is-on { border-color: var(--verdigris); color: var(--verdigris); }
+      button#notify-button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
       button#wipe-button {
         appearance: none;
         background: transparent;
@@ -354,7 +378,10 @@
           <span class="mark">PillTalk</span>
           <button class="id-chip" id="pubkey-label" type="button" title="Click to copy your full ID"></button>
         </div>
-        <button id="wipe-button" type="button">Delete it all</button>
+        <div class="header-actions">
+          <button id="notify-button" type="button">Notify: off</button>
+          <button id="wipe-button" type="button">Delete it all</button>
+        </div>
       </header>
       <section class="panel">
         <h2 class="panel-head">
