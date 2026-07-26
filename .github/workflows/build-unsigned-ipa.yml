@@ -1,0 +1,56 @@
+name: Build Unsigned iOS IPA (for Sideloadly)
+
+# Produces an unsigned .ipa artifact for local sideloading via Sideloadly
+# (which does its own Apple-ID-based signing on the client machine). No
+# distribution certificate, provisioning profile, or App Store Connect
+# access needed -- unlike testflight-release.yml, which requires a paid
+# Apple Developer Program account this fork doesn't have configured.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build unsigned .ipa
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Build unsigned .app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project pilltalk.xcodeproj \
+            -scheme "pilltalk (iOS)" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+
+      - name: Package as unsigned IPA
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find "$RUNNER_TEMP/build/Build/Products/Release-iphoneos" -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found in build products" >&2
+            find "$RUNNER_TEMP/build/Build/Products" -maxdepth 2 >&2
+            exit 1
+          fi
+          echo "Found app at: $APP_PATH"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -r pilltalk-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilltalk-unsigned-ipa
+          path: ${{ runner.temp }}/pilltalk-unsigned.ipa
+          retention-days: 14
