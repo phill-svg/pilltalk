@@ -55,8 +55,9 @@ export class GeohashChannel {
   }
 
   private handleEvent(event: NostrEvent): void {
-    if (event.pubkey === this.ephemeralPublicKey) return;
-    this.lastSeen.set(event.pubkey, event.created_at * 1000);
+    if (event.pubkey !== this.ephemeralPublicKey) {
+      this.lastSeen.set(event.pubkey, event.created_at * 1000);
+    }
     if (event.kind === KIND_GEOHASH_CHAT) {
       const nickname = event.tags.find((t) => t[0] === 'n')?.[1] ?? 'anon';
       this.onMessage({ pubkey: event.pubkey, nickname, content: event.content, createdAt: event.created_at });

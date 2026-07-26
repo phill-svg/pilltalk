@@ -35,6 +35,17 @@ describe('GeohashChannel', () => {
     expect(onMessage.mock.calls[0]![0]).toMatchObject({ nickname: 'alex', content: 'hi there' });
   });
 
+  it('delivers a channel own sent message back to its own onMessage callback', () => {
+    const pool = createInMemoryRelayPool();
+    const onMessage = vi.fn();
+    const channel = new GeohashChannel(pool, MASTER_KEY, 'u4pru', onMessage);
+    channel.join();
+    channel.sendMessage('my own message', 'phill');
+
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onMessage.mock.calls[0]![0]).toMatchObject({ nickname: 'phill', content: 'my own message' });
+  });
+
   it('broadcasts presence heartbeats for a city-precision geohash but not a block-precision one', () => {
     const pool = createInMemoryRelayPool();
     const presenceEvents: unknown[] = [];
