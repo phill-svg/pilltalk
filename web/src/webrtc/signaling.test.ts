@@ -1,6 +1,6 @@
 // web/src/webrtc/signaling.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { WebRtcSignaling, type PeerConnectionLike, type DataChannelLike, type SignalPayload } from './signaling';
+import { WebRtcSignaling, type PeerConnectionLike, type DataChannelLike } from './signaling';
 
 class FakeDataChannel implements DataChannelLike {
   readyState = 'connecting';
@@ -26,6 +26,7 @@ class FakePeerConnection implements PeerConnectionLike {
   onicecandidate: ((ev: { candidate: unknown }) => void) | null = null;
   ondatachannel: ((ev: { channel: DataChannelLike }) => void) | null = null;
   localChannel: FakeDataChannel | null = null;
+  addIceCandidateCalls: unknown[] = [];
 
   async createOffer() {
     return { type: 'offer', sdp: 'fake-offer-sdp' };
@@ -41,7 +42,9 @@ class FakePeerConnection implements PeerConnectionLike {
       this.ondatachannel?.({ channel });
     }
   }
-  async addIceCandidate(): Promise<void> {}
+  async addIceCandidate(candidate: unknown): Promise<void> {
+    this.addIceCandidateCalls.push(candidate);
+  }
   createDataChannel(): DataChannelLike {
     const channel = new FakeDataChannel();
     this.localChannel = channel;
@@ -99,20 +102,49 @@ describe('WebRtcSignaling', () => {
   });
 
   it('forwards ICE candidates to the existing peer connection for that peer', async () => {
+    const alicePeerConnections: FakePeerConnection[] = [];
+    const bobPeerConnections: FakePeerConnection[] = [];
     let bob: WebRtcSignaling;
-    const sentToBob: SignalPayload[] = [];
-    const alice = new WebRtcSignaling(
-      () => new FakePeerConnection(),
-      (_peerPubkey, payload) => sentToBob.push(payload),
+    let alice: WebRtcSignaling;
+
+    alice = new WebRtcSignaling(
+      () => {
+        const pc = new FakePeerConnection();
+        alicePeerConnections.push(pc);
+        return pc;
+      },
+      (_peerPubkey, payload) => {
+        void bob.handleSignal('alice', payload);
+      },
       () => {},
     );
-    await alice.initiate('bob');
-    sentToBob.length = 0; // clear the offer captured above
+    bob = new WebRtcSignaling(
+      () => {
+        const pc = new FakePeerConnection();
+        bobPeerConnections.push(pc);
+        return pc;
+      },
+      (_peerPubkey, payload) => {
+        void alice.handleSignal('bob', payload);
+      },
+      () => {},
+    );
 
-    const addIceCandidate = vi.fn();
-    // Reach into the private map is not possible from a test; instead verify
-    // handleSignal on an unknown peer with an 'ice' type is a safe no-op.
-    await expect(alice.handleSignal('someone-unconnected', { type: 'ice', data: {} })).resolves.toBeUndefined();
-    expect(addIceCandidate).not.toHaveBeenCalled();
+    // Establish the connection (offer/answer) so bob has a real peer
+    // connection on file for 'alice' before any ICE candidate arrives.
+    await alice.initiate('bob');
+
+    const bobPc = bobPeerConnections[0]!;
+    expect(bobPc.addIceCandidateCalls).toHaveLength(0);
+
+    const candidate = { candidate: 'fake-ice-candidate', sdpMid: '0', sdpMLineIndex: 0 };
+    await bob.handleSignal('alice', { type: 'ice', data: candidate });
+
+    expect(bobPc.addIceCandidateCalls).toEqual([candidate]);
+
+    // A peer with no existing connection should be a safe no-op.
+    await expect(
+      alice.handleSignal('someone-unconnected', { type: 'ice', data: {} }),
+    ).resolves.toBeUndefined();
   });
 });
