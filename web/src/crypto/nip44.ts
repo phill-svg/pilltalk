@@ -62,6 +62,15 @@ function deriveMessageKeys(conversationKeyBytes: Uint8Array, nonce: Uint8Array) 
   };
 }
 
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i]! ^ b[i]!;
+  }
+  return diff === 0;
+}
+
 export function nip44Encrypt(plaintext: string, senderPrivateKeyHex: string, recipientPublicKeyHex: string): string {
   const key = conversationKey(senderPrivateKeyHex, recipientPublicKeyHex);
   const nonce = randomBytes(32);
@@ -81,7 +90,7 @@ export function nip44Decrypt(payloadBase64: string, receiverPrivateKeyHex: strin
   const key = conversationKey(receiverPrivateKeyHex, senderPublicKeyHex);
   const { chachaKey, chachaNonce, hmacKey } = deriveMessageKeys(key, nonce);
   const expectedMac = hmac(sha256, hmacKey, concatBytes(nonce, ciphertext));
-  const macsMatch = expectedMac.length === mac.length && expectedMac.every((b, i) => b === mac[i]);
+  const macsMatch = constantTimeEqual(expectedMac, mac);
   if (!macsMatch) throw new Error('nip44: MAC verification failed');
   const paddedPlaintext = chacha20(chachaKey, chachaNonce, ciphertext);
   return new TextDecoder().decode(unpad(paddedPlaintext));
