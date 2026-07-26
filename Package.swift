@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "bitchat",
+    name: "pilltalk",
     defaultLocalization: "en",
     platforms: [
         .iOS(.v16),
@@ -11,8 +11,8 @@ let package = Package(
     ],
     products: [
         .executable(
-            name: "bitchat",
-            targets: ["bitchat"]
+            name: "pilltalk",
+            targets: ["pilltalk"]
         )
     ],
     dependencies: [
@@ -23,20 +23,20 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "bitchat",
+            name: "pilltalk",
             dependencies: [
                 .product(name: "P256K", package: "swift-secp256k1"),
                 .product(name: "BitFoundation", package: "BitFoundation"),
                 .product(name: "BitLogger", package: "BitLogger"),
                 .product(name: "Tor", package: "Arti")
             ],
-            path: "bitchat",
+            path: "pilltalk",
             exclude: [
                 "Info.plist",
                 "Assets.xcassets",
                 "_PreviewHelpers/PreviewAssets.xcassets",
-                "bitchat.entitlements",
-                "bitchat-macOS.entitlements",
+                "pilltalk.entitlements",
+                "pilltalk-macOS.entitlements",
                 "LaunchScreen.storyboard",
                 "ViewModels/Extensions/README.md"
             ],
@@ -45,12 +45,12 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "bitchatTests",
+            name: "pilltalkTests",
             dependencies: [
-                "bitchat",
+                "pilltalk",
                 .product(name: "BitFoundation", package: "BitFoundation")
             ],
-            path: "bitchatTests",
+            path: "pilltalkTests",
             exclude: [
                 "Info.plist",
                 "README.md",

@@ -166,7 +166,7 @@ public struct CourierEnvelope: Equatable {
 
     // MARK: - Recipient Tags
 
-    private static let tagContext = Data("bitchat-courier-tag-v1".utf8)
+    private static let tagContext = Data("pilltalk-courier-tag-v1".utf8)
 
     /// UTC day number used to rotate recipient tags.
     public static func epochDay(for date: Date) -> UInt32 {

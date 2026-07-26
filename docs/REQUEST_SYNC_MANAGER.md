@@ -15,7 +15,7 @@ The new implementation introduces a **RequestSyncManager** to track outgoing syn
 
 ### Binary Protocol Updates
 *   **New Flag**: `IS_RSR` (0x10) added to the packet header flags.
-*   **BitchatPacket**: Updated to include `isRSR: Bool` field.
+*   **PilltalkPacket**: Updated to include `isRSR: Bool` field.
 *   **Encoding/Decoding**: Updated `BinaryProtocol` to handle the new flag.
 
 ### Request Sync Payload

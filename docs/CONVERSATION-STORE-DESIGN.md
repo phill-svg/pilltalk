@@ -7,7 +7,7 @@ holder of message state; the feature models (`PublicChatModel`,
 active `Conversation` object, so background appends never invalidate it.
 `LegacyConversationStore`, `LegacyConversationStoreBridge`, and
 `PublicTimelineStore` are deleted. Baselines recorded in
-`bitchatTests/Performance/PerformanceBaselineTests.swift`
+`pilltalkTests/Performance/PerformanceBaselineTests.swift`
 (`pipeline.privateIngest`, `pipeline.publicIngest`, `store.append`,
 `delivery.incrementalUpdate`, `delivery.storeUpdate`).
 
@@ -126,7 +126,7 @@ while a timer-batched `PublicMessagePipeline` mutates `messages` ~80 ms later
 
 ## 3. Deleted at end state (done)
 
-- `PublicTimelineStore` (`bitchat/ViewModels/PublicTimelineStore.swift`) — folded into
+- `PublicTimelineStore` (`pilltalk/ViewModels/PublicTimelineStore.swift`) — folded into
   `Conversation` cap/dedup policy.
 - `PrivateChatManager`'s message dict and trim/sanitize logic — the manager shrinks to
   read-receipt policy (`markAsRead`, `syncReadReceiptsForSentMessages`).
@@ -162,7 +162,7 @@ numbers (no pipeline throughput regression at any step).
 
 ## 5. Non-goals
 
-- **No message persistence.** bitchat is ephemeral by design; the store stays in-memory.
+- **No message persistence.** pilltalk is ephemeral by design; the store stays in-memory.
 - **`sentReadReceipts` UserDefaults persistence stays put** (`ChatViewModel.swift:394-406`);
   it is receipt-protocol state, not conversation state.
 - **`MessageRouter`'s outbox remains the SSOT for unsent messages**; the store records

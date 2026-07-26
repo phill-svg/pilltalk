@@ -1,6 +1,6 @@
 //
 // TestHelpers.swift
-// bitchatTests
+// pilltalkTests
 //
 // This is free and unencumbered software released into the public domain.
 // For more information, see <https://unlicense.org>
@@ -35,8 +35,8 @@ final class TestHelpers {
         isPrivate: Bool = false,
         recipientNickname: String? = nil,
         mentions: [String]? = nil
-    ) -> BitchatMessage {
-        return BitchatMessage(
+    ) -> PilltalkMessage {
+        return PilltalkMessage(
             id: UUID().uuidString,
             sender: sender,
             content: content,
@@ -57,8 +57,8 @@ final class TestHelpers {
         payload: Data = Data("test payload".utf8),
         signature: Data? = nil,
         ttl: UInt8 = 3
-    ) -> BitchatPacket {
-        return BitchatPacket(
+    ) -> PilltalkPacket {
+        return PilltalkPacket(
             type: type,
             senderID: Data(senderID.id.utf8),
             recipientID: recipientID?.id.data(using: .utf8),

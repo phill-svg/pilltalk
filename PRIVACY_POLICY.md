@@ -1,10 +1,10 @@
-# bitchat Privacy Policy
+# pilltalk Privacy Policy
 
 *Last updated: July 2026*
 
 ## Our Commitment
 
-bitchat is designed for private, account-free communication. This policy describes what the app keeps on your device, what it sends when you use mesh or optional internet features, and how long local data can remain.
+pilltalk is designed for private, account-free communication. This policy describes what the app keeps on your device, what it sends when you use mesh or optional internet features, and how long local data can remain.
 
 ## Summary
 
@@ -13,12 +13,12 @@ bitchat is designed for private, account-free communication. This policy describ
 - **No sale of data** — the project does not sell user data or build advertising profiles.
 - **Open source** — the storage, networking, and cryptography described here can be inspected in the source code.
 
-## What bitchat Stores on Your Device
+## What pilltalk Stores on Your Device
 
 1. **Identity and cryptographic keys**
    - Noise, signing, group, prekey, and optional Nostr identity material is generated locally.
    - Secret keys are stored in the system keychain as device-only items. Public keys are shared when required for messaging, verification, groups, or Nostr events.
-   - Keys remain until they are rotated, removed by the relevant feature, or erased with panic wipe. Because operating-system keychains can outlive an uninstall, bitchat records a non-secret install marker and deletes surviving app keys before use after a later reinstall.
+   - Keys remain until they are rotated, removed by the relevant feature, or erased with panic wipe. Because operating-system keychains can outlive an uninstall, pilltalk records a non-secret install marker and deletes surviving app keys before use after a later reinstall.
 
 2. **Nickname, preferences, and relationships**
    - Your nickname, settings, favorites, petnames, read-receipt identifiers, and bounded operational metadata are stored locally.
@@ -45,11 +45,11 @@ bitchat is designed for private, account-free communication. This policy describ
 7. **Optional location-channel state**
    - Your selected geohash channel, bookmarks, teleport flags, and bookmark display names are stored locally so the UI can restore them.
    - Per-geohash Nostr identities are derived locally from a device seed stored in the keychain.
-   - bitchat does not persist exact latitude or longitude and does not include exact coordinates in mesh or Nostr messages.
+   - pilltalk does not persist exact latitude or longitude and does not include exact coordinates in mesh or Nostr messages.
 
 ## Temporary Session Data
 
-While running, bitchat maintains active connections, routing state, deduplication state, and bounded in-memory conversation timelines. Closing the app clears the in-memory timelines and active connections, but it does not erase the persistent stores listed above.
+While running, pilltalk maintains active connections, routing state, deduplication state, and bounded in-memory conversation timelines. Closing the app clears the in-memory timelines and active connections, but it does not erase the persistent stores listed above.
 
 ## What Is Shared
 
@@ -85,9 +85,9 @@ Nostr relays are operated by third parties. Their retention, logging, availabili
 
 Location permission is optional and requested as when-in-use access. It is used to compute geohash channels, bridge rendezvous cells, and nearby place labels.
 
-- Exact coordinates are not included in bitchat mesh or Nostr payloads and are not persisted by bitchat.
+- Exact coordinates are not included in pilltalk mesh or Nostr payloads and are not persisted by pilltalk.
 - A selected geohash can still reveal an approximate area to peers and relays.
-- When bitchat asks the operating system for a friendly place name, Apple's `CLGeocoder` service may process the location under Apple's privacy terms.
+- When pilltalk asks the operating system for a friendly place name, Apple's `CLGeocoder` service may process the location under Apple's privacy terms.
 - Revoking location permission stops live location sampling. Saved bookmarks remain until you remove them, panic-wipe the app, or remove the app.
 
 ## Microphone, Camera, and Media Permissions
@@ -95,7 +95,7 @@ Location permission is optional and requested as when-in-use access. It is used 
 - Microphone access is used only while you record a voice note or actively hold live push-to-talk. The resulting audio is sent to the mesh conversation you selected; public-conversation audio is public to that mesh, while private-conversation audio uses the private transport protections described below.
 - Voice-note and live-audio files can remain in Application Support under the media retention rules above.
 - Camera access is used to scan peer-verification QR codes. Photo-library access is used when you choose an image to send.
-- These permissions can be revoked in system settings. bitchat does not record microphone or camera input while the related capture UI is inactive.
+- These permissions can be revoked in system settings. pilltalk does not record microphone or camera input while the related capture UI is inactive.
 
 ## Cryptography
 
@@ -128,12 +128,12 @@ No cryptographic system can protect content after a recipient reads, copies, scr
 
 ## What the Project Does Not Do
 
-bitchat does not:
+pilltalk does not:
 
 - Operate an account database or project-owned messaging backend.
 - Include advertising, analytics, or tracking SDKs.
 - Sell user data or create advertising profiles.
-- Include exact GPS coordinates in bitchat mesh or Nostr message payloads.
+- Include exact GPS coordinates in pilltalk mesh or Nostr message payloads.
 
 ## Children's Privacy
 
@@ -145,9 +145,9 @@ Material behavior changes will be reflected in this document and its “Last upd
 
 ## Contact
 
-bitchat is an open source project. For privacy questions:
+pilltalk is an open source project. For privacy questions:
 
-- View the source: [https://github.com/permissionlesstech/bitchat](https://github.com/permissionlesstech/bitchat)
+- View the source: [https://github.com/phill-svg/pilltalk](https://github.com/phill-svg/pilltalk)
 - Open an issue on GitHub.
 
 ---

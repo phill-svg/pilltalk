@@ -6,7 +6,7 @@
 // For more information, see <https://unlicense.org>
 //
 
-/// Simplified BitChat protocol message types.
+/// Simplified PillTalk protocol message types.
 /// Consolidated from the original 24 wire types down to the 9 cases below.
 /// All private communication metadata (receipts, status) is embedded in noiseEncrypted payloads.
 public enum MessageType: UInt8 {

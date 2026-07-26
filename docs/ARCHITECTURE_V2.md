@@ -5,7 +5,7 @@ This branch starts a larger simplification effort focused on performance, reliab
 ## What Landed
 
 1. `AppRuntime` is now the composition root for startup, lifecycle, notification routing, and shared-content intake.
-2. `BitchatApp` is reduced to app wiring and no longer owns operational startup logic.
+2. `PilltalkApp` is reduced to app wiring and no longer owns operational startup logic.
 3. `AppEventStream` introduces a typed async event surface for app-level events.
 4. `PeerHandle` and `ConversationID` establish canonical identity/conversation keys above the existing transport-specific IDs.
 5. `IdentityResolver` mirrors the current peer graph into canonical handles.
@@ -27,7 +27,7 @@ This branch starts a larger simplification effort focused on performance, reliab
 - The conversation UI model centralizes composer state, autocomplete, message formatting, and row-level actions so the main views no longer proxy most conversation interactions directly to `ChatViewModel`.
 - The location channels model gives the remaining location-heavy views a focused adapter over the location/bookmark/network singletons, which reduces direct global reads in the view layer and makes smoke/architecture tests more reliable.
 - Reusing that same location model inside the peer-list feature keeps geohash/mesh presence presentation on one runtime-owned source of truth instead of mixing view models with singleton reads.
-- `BitchatApp` now injects only feature-scoped models into the view tree, which removes the old pattern of keeping `ChatViewModel` as a global environment object for the entire app shell.
+- `PilltalkApp` now injects only feature-scoped models into the view tree, which removes the old pattern of keeping `ChatViewModel` as a global environment object for the entire app shell.
 - Routing QR scan parsing through the verification model keeps the verification UI as a passive renderer and gives us a clearer seam for future camera/manual-scan behavior changes.
 - The new `ChatViewModel` coordinators are intentionally transitional: they shrink the main file and isolate composition, lifecycle, transport, and peer-list responsibilities without forcing a risky rewrite of the transport/BLE core in the same pass.
 
@@ -41,7 +41,7 @@ This branch starts a larger simplification effort focused on performance, reliab
 
 ## Transport Follow-Up
 
-The Bluetooth architecture branch begins step 2 by adding a typed `TransportEvent` boundary while preserving the legacy `BitchatDelegate` bridge. New transport code should emit typed events first, with delegate forwarding used only as a compatibility adapter during migration.
+The Bluetooth architecture branch begins step 2 by adding a typed `TransportEvent` boundary while preserving the legacy `PilltalkDelegate` bridge. New transport code should emit typed events first, with delegate forwarding used only as a compatibility adapter during migration.
 
 The branch also starts carving performance-sensitive BLE scheduling state out of `BLEService`: pending write backpressure now lives in `BLEOutboundWriteBuffer`, giving the outbound hot path a focused, unit-tested component before deeper fragmentation and link-scheduler work.
 

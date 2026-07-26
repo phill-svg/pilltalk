@@ -1,4 +1,4 @@
-# bitchat Privacy Assessment
+# pilltalk Privacy Assessment
 
 Last reviewed: July 2026
 
@@ -28,7 +28,7 @@ Signed announces can expose:
 - A bounded set of short direct-neighbor identifiers
 - A coarse rendezvous geohash when the bridge capability is enabled
 
-The app does not advertise the device's user-assigned name. iOS manages BLE address randomization; bitchat does not attempt to create a stable MAC address. RSSI, timing, traffic volume, and radio fingerprints remain observable to nearby receivers.
+The app does not advertise the device's user-assigned name. iOS manages BLE address randomization; pilltalk does not attempt to create a stable MAC address. RSSI, timing, traffic volume, and radio fingerprints remain observable to nearby receivers.
 
 Ingress validates announce structure, sender binding, signatures, payload sizes, and freshness. Current-link Noise authentication is required before destructive courier handoff or strict directed delivery. Floods, queues, fragments, ingress work, and per-peer state are bounded.
 
@@ -65,7 +65,7 @@ Residual risk: Nostr relay retention and logging are outside project control. Pu
 ## Location
 
 - When-in-use CoreLocation access computes geohash choices and bridge cells. Permission revocation stops live sampling and releases subscriptions.
-- Exact coordinates are not persisted by bitchat or placed into mesh/Nostr payloads.
+- Exact coordinates are not persisted by pilltalk or placed into mesh/Nostr payloads.
 - Selected/bookmarked geohashes, teleport flags, and display names persist in local preferences; a fine geohash can identify a small area.
 - Friendly place names use `CLGeocoder.reverseGeocodeLocation`. Apple may process the supplied location under its own privacy terms, so this operation is not accurately described as wholly on-device.
 - Automatic presence is limited to lower-precision geohashes; precise posts occur through user-selected channels, notes, notices, or the bridge behavior presented in the UI.
@@ -78,13 +78,13 @@ Residual risk: Nostr relay retention and logging are outside project control. Pu
 
 ## Privacy Manifests
 
-`bitchat/PrivacyInfo.xcprivacy` declares:
+`pilltalk/PrivacyInfo.xcprivacy` declares:
 
 - UserDefaults: `CA92.1` for app-only preferences and `1C8F.1` for the shared app group
 - File timestamps/metadata: `C617.1` for app-container files and `3B52.1` for user-granted files
 - System boot time: `35F9.1` for elapsed-time deadlines and timers
 
-`bitchatShareExtension/PrivacyInfo.xcprivacy` declares app-group UserDefaults reason `1C8F.1`. Both manifests declare no tracking domains and no data collection by the app developer. They must remain bundled in their respective executable bundles.
+`pilltalkShareExtension/PrivacyInfo.xcprivacy` declares app-group UserDefaults reason `1C8F.1`. Both manifests declare no tracking domains and no data collection by the app developer. They must remain bundled in their respective executable bundles.
 
 ## Panic Wipe Coverage
 

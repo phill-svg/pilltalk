@@ -100,10 +100,10 @@ public final class SecureLogger {
 
     // MARK: - Global Threshold
 
-    /// Minimum level that will be logged. Defaults to .info. Override via env BITCHAT_LOG_LEVEL.
+    /// Minimum level that will be logged. Defaults to .info. Override via env PILLTALK_LOG_LEVEL.
     /// Internal-settable so tests can verify level filtering; app code should not mutate it.
     internal static var minimumLevel: LogLevel = {
-        let env = ProcessInfo.processInfo.environment["BITCHAT_LOG_LEVEL"]?.lowercased()
+        let env = ProcessInfo.processInfo.environment["PILLTALK_LOG_LEVEL"]?.lowercased()
         switch env {
         case "debug": return .debug
         case "warning": return .warning
@@ -248,7 +248,7 @@ private extension SecureLogger {
                     file: String, line: Int, function: String) {
         // All public wrappers are compiled out of release builds; this core
         // is gated too so no future call path can reintroduce production
-        // logging. bitchat is privacy-first: release builds emit nothing.
+        // logging. pilltalk is privacy-first: release builds emit nothing.
         #if DEBUG
         guard shouldLog(level) else { return }
         let location = formatLocation(file: file, line: line, function: function)

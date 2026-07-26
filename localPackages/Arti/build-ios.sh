@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Build arti-bitchat for iOS/macOS with aggressive size optimization
+# Build arti-pilltalk for iOS/macOS with aggressive size optimization
 #
 # Output: Frameworks/arti.xcframework containing static libraries for:
 #   - aarch64-apple-ios (iOS device)
@@ -23,8 +23,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Configuration
-CRATE_NAME="arti-bitchat"
-LIB_NAME="libarti_bitchat.a"
+CRATE_NAME="arti-pilltalk"
+LIB_NAME="libarti_pilltalk.a"
 FRAMEWORK_NAME="arti"
 OUTPUT_DIR="$SCRIPT_DIR/Frameworks"
 
@@ -211,13 +211,13 @@ create_xcframework() {
 	<array>
 		<dict>
 			<key>BinaryPath</key>
-			<string>libarti_bitchat.a</string>
+			<string>libarti_pilltalk.a</string>
 			<key>HeadersPath</key>
 			<string>Headers</string>
 			<key>LibraryIdentifier</key>
 			<string>ios-arm64</string>
 			<key>LibraryPath</key>
-			<string>libarti_bitchat.a</string>
+			<string>libarti_pilltalk.a</string>
 			<key>SupportedArchitectures</key>
 			<array>
 				<string>arm64</string>
@@ -227,13 +227,13 @@ create_xcframework() {
 		</dict>
 		<dict>
 			<key>BinaryPath</key>
-			<string>libarti_bitchat.a</string>
+			<string>libarti_pilltalk.a</string>
 			<key>HeadersPath</key>
 			<string>Headers</string>
 			<key>LibraryIdentifier</key>
 			<string>ios-arm64_x86_64-simulator</string>
 			<key>LibraryPath</key>
-			<string>libarti_bitchat.a</string>
+			<string>libarti_pilltalk.a</string>
 			<key>SupportedArchitectures</key>
 			<array>
 				<string>arm64</string>
@@ -246,13 +246,13 @@ create_xcframework() {
 		</dict>
 		<dict>
 			<key>BinaryPath</key>
-			<string>libarti_bitchat.a</string>
+			<string>libarti_pilltalk.a</string>
 			<key>HeadersPath</key>
 			<string>Headers</string>
 			<key>LibraryIdentifier</key>
 			<string>macos-arm64_x86_64</string>
 			<key>LibraryPath</key>
-			<string>libarti_bitchat.a</string>
+			<string>libarti_pilltalk.a</string>
 			<key>SupportedArchitectures</key>
 			<array>
 				<string>arm64</string>
@@ -408,7 +408,7 @@ print_size_report() {
 
 # Main
 main() {
-    log_info "Building arti-bitchat for iOS/macOS"
+    log_info "Building arti-pilltalk for iOS/macOS"
     log_info "=================================="
 
     check_prerequisites

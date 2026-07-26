@@ -7,7 +7,7 @@ Overview
 Key pieces
 - TorManager
   - Boots Tor, manages a DataDirectory under Application Support, exposes SOCKS at 127.0.0.1:39050, and provides awaitReady().
-  - Fails closed by default until Tor is bootstrapped. For local development only, define BITCHAT_DEV_ALLOW_CLEARNET to bypass Tor.
+  - Fails closed by default until Tor is bootstrapped. For local development only, define PILLTALK_DEV_ALLOW_CLEARNET to bypass Tor.
 - TorURLSession
   - Provides a shared URLSession configured with a SOCKS5 proxy when Tor is enforced/ready.
   - NostrRelayManager and GeoRelayDirectory now use this session and await Tor readiness before starting network activity.
@@ -26,9 +26,9 @@ Optional macOS optimization
    - Detect a system Tor binary (e.g., /opt/homebrew/bin/tor) and run it as a subprocess to avoid bundling. Keep the embedded fallback for portability.
 
 torrc template
-The generated torrc (under Application Support/bitchat/tor/torrc) is:
+The generated torrc (under Application Support/pilltalk/tor/torrc) is:
 
-  DataDirectory <AppSupport>/bitchat/tor
+  DataDirectory <AppSupport>/pilltalk/tor
   ClientOnly 1
   SOCKSPort 127.0.0.1:39050
   ControlPort 127.0.0.1:39051
@@ -38,7 +38,7 @@ The generated torrc (under Application Support/bitchat/tor/torrc) is:
 
 Dev bypass (local only)
 - To temporarily allow direct network without Tor for local development:
-  - Add Swift compiler flag: BITCHAT_DEV_ALLOW_CLEARNET
+  - Add Swift compiler flag: PILLTALK_DEV_ALLOW_CLEARNET
   - This enables a clearnet session in TorURLSession when Tor isn’t present.
   - Never enable this in release builds.
 

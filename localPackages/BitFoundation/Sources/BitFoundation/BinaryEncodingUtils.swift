@@ -1,6 +1,6 @@
 //
 // BinaryEncodingUtils.swift
-// bitchat
+// pilltalk
 //
 // Binary encoding utilities for efficient protocol messages
 //

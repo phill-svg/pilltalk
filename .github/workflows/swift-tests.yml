@@ -70,7 +70,7 @@ jobs:
         # done by this step) and kills the run, so a hang fails fast with
         # stacks in the log instead of a silent timeout.
         env:
-          BITCHAT_SKIP_PERF_BASELINES: "1"
+          PILLTALK_SKIP_PERF_BASELINES: "1"
         run: |
           swift test --skip-build --parallel --quiet --enable-code-coverage \
             --skip PerformanceBaselineTests \
@@ -95,16 +95,16 @@ jobs:
           exit "$status"
 
       # Benchmarks run serially on an otherwise idle runner for stable
-      # numbers; BITCHAT_PERF_LOG captures the PERF[...] lines for the gate.
+      # numbers; PILLTALK_PERF_LOG captures the PERF[...] lines for the gate.
       - name: Run performance benchmarks (serial)
         if: matrix.name == 'app'
         timeout-minutes: 6
         env:
-          BITCHAT_PERF_LOG: ${{ github.workspace }}/perf-output.log
+          PILLTALK_PERF_LOG: ${{ github.workspace }}/perf-output.log
         run: swift test --quiet --filter PerformanceBaselineTests
 
       # Order-of-magnitude performance regression gate. Floors are deliberately
-      # generous (see bitchatTests/Performance/perf-floors.json) so this
+      # generous (see pilltalkTests/Performance/perf-floors.json) so this
       # catches algorithmic regressions, never runner variance. If a metric
       # still lands below floor (a saturated runner can dip one), the script
       # re-runs the benchmarks — appending to the same log and keeping each
@@ -147,8 +147,8 @@ jobs:
         # Arti simulator slice and the configuration that ships.
         run: |
           set -o pipefail
-          xcodebuild -project bitchat.xcodeproj \
-            -scheme "bitchat (iOS)" \
+          xcodebuild -project pilltalk.xcodeproj \
+            -scheme "pilltalk (iOS)" \
             -configuration Release \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
@@ -160,8 +160,8 @@ jobs:
       - name: Build macOS (universal, no signing)
         run: |
           set -o pipefail
-          xcodebuild -project bitchat.xcodeproj \
-            -scheme "bitchat (macOS)" \
+          xcodebuild -project pilltalk.xcodeproj \
+            -scheme "pilltalk (macOS)" \
             -configuration Release \
             -destination 'generic/platform=macOS' \
             ARCHS='arm64 x86_64' \

@@ -1,6 +1,6 @@
-# Source-Based Routing for BitChat Packets (v2)
+# Source-Based Routing for PillTalk Packets (v2)
 
-This document specifies the Source-Based Routing extension (v2) for the BitChat protocol. This upgrade enables efficient unicast routing across the mesh by allowing senders to specify an explicit path of intermediate relays.
+This document specifies the Source-Based Routing extension (v2) for the PillTalk protocol. This upgrade enables efficient unicast routing across the mesh by allowing senders to specify an explicit path of intermediate relays.
 
 **Status:** Implemented in Android and iOS: both decode routed packets, forward along routes, and originate routes. iOS origination is policy-gated (see §8). Backward compatible (v1 clients never receive routed frames from iOS: routes are only originated when every node on the path has been observed speaking v2).
 

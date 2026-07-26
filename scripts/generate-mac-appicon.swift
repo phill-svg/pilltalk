@@ -7,7 +7,7 @@
 // transparent 1024 canvas, with the standard subtle drop shadow.
 //
 // Usage: swift scripts/generate-mac-appicon.swift <source-1024.png> <output-dir> <file-prefix>
-//   e.g. swift scripts/generate-mac-appicon.swift icon_1024x1024.png bitchat/Assets.xcassets/AppIcon.appiconset icon
+//   e.g. swift scripts/generate-mac-appicon.swift icon_1024x1024.png pilltalk/Assets.xcassets/AppIcon.appiconset icon
 
 import AppKit
 import UniformTypeIdentifiers

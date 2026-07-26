@@ -4,7 +4,7 @@
 #
 # Parses the `PERF[name]: N unit/sec ...` lines that PerformanceBaselineTests
 # prints into captured test output and fails if any benchmark's throughput is
-# below its floor from bitchatTests/Performance/perf-floors.json.
+# below its floor from pilltalkTests/Performance/perf-floors.json.
 #
 # Floor philosophy (see the floors file): floors sit at ~25% of locally
 # measured throughput, so they catch algorithmic regressions (O(n) -> O(n^2)),
@@ -22,15 +22,15 @@
 # Usage: scripts/check-perf-floors.sh <test-output-file> [floors-file]
 #
 # Environment:
-#   BITCHAT_PERF_GATE_ATTEMPTS   total measurement attempts (default 3)
-#   BITCHAT_PERF_REMEASURE_CMD   command run to re-measure on a below-floor
+#   PILLTALK_PERF_GATE_ATTEMPTS   total measurement attempts (default 3)
+#   PILLTALK_PERF_REMEASURE_CMD   command run to re-measure on a below-floor
 #                                result (default: swift test --quiet
 #                                --filter PerformanceBaselineTests). The
-#                                command runs with BITCHAT_PERF_LOG pointed at
+#                                command runs with PILLTALK_PERF_LOG pointed at
 #                                the output file so new PERF lines append.
 #
 # Skips gracefully (exit 0) when:
-#   - BITCHAT_SKIP_PERF_BASELINES=1 (perf tests were skipped), or
+#   - PILLTALK_SKIP_PERF_BASELINES=1 (perf tests were skipped), or
 #   - the output contains no PERF lines (e.g. package-only matrix entries).
 #
 # Fails when:
@@ -48,12 +48,12 @@ if [[ $# -lt 1 ]]; then
 fi
 
 OUTPUT_FILE="$1"
-FLOORS_FILE="${2:-$(cd "$(dirname "$0")/.." && pwd)/bitchatTests/Performance/perf-floors.json}"
-MAX_ATTEMPTS="${BITCHAT_PERF_GATE_ATTEMPTS:-3}"
-REMEASURE_CMD="${BITCHAT_PERF_REMEASURE_CMD:-swift test --quiet --filter PerformanceBaselineTests}"
+FLOORS_FILE="${2:-$(cd "$(dirname "$0")/.." && pwd)/pilltalkTests/Performance/perf-floors.json}"
+MAX_ATTEMPTS="${PILLTALK_PERF_GATE_ATTEMPTS:-3}"
+REMEASURE_CMD="${PILLTALK_PERF_REMEASURE_CMD:-swift test --quiet --filter PerformanceBaselineTests}"
 
-if [[ "${BITCHAT_SKIP_PERF_BASELINES:-}" == "1" ]]; then
-    echo "perf-floors: BITCHAT_SKIP_PERF_BASELINES=1 — skipping gate."
+if [[ "${PILLTALK_SKIP_PERF_BASELINES:-}" == "1" ]]; then
+    echo "perf-floors: PILLTALK_SKIP_PERF_BASELINES=1 — skipping gate."
     exit 0
 fi
 
@@ -141,7 +141,7 @@ if below_floor:
     print("\n".join(below_floor))
     print("\nFloors are ~25% of healthy local throughput; falling below one means an")
     print("algorithmic regression, not runner noise. If the change is intentional,")
-    print("update bitchatTests/Performance/perf-floors.json deliberately.")
+    print("update pilltalkTests/Performance/perf-floors.json deliberately.")
     sys.exit(1)
 
 print("perf-floors: all benchmarks at or above their floors.")
@@ -174,7 +174,7 @@ while true; do
     attempt=$((attempt + 1))
     echo "perf-floors: re-measuring (attempt $attempt of $MAX_ATTEMPTS) to separate runner noise from a real regression."
     # Word splitting of REMEASURE_CMD is deliberate: it is a command line.
-    if ! BITCHAT_PERF_LOG="$OUTPUT_FILE" $REMEASURE_CMD; then
+    if ! PILLTALK_PERF_LOG="$OUTPUT_FILE" $REMEASURE_CMD; then
         echo "perf-floors: re-measurement command failed: $REMEASURE_CMD" >&2
         exit 1
     fi

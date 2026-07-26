@@ -5,10 +5,10 @@
 # state restoration, screenshot handlers, background BLE sampling — so those
 # findings live in .periphery.baseline.json rather than being "fixed".
 # When auditing by hand, scan BOTH schemes and intersect:
-#   periphery scan --schemes "bitchat (iOS)" -- -destination 'generic/platform=iOS' ARCHS=arm64
-project: bitchat.xcodeproj
+#   periphery scan --schemes "pilltalk (iOS)" -- -destination 'generic/platform=iOS' ARCHS=arm64
+project: pilltalk.xcodeproj
 schemes:
-  - bitchat (macOS)
+  - pilltalk (macOS)
 retain_swift_ui_previews: true
 # Codable properties are (de)serialized via synthesized conformances the
 # indexer doesn't always attribute reads to: PrekeyBundleStore.StoredBundle

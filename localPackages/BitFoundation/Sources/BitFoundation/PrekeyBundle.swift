@@ -47,7 +47,7 @@ public struct PrekeyBundle: Equatable {
 
     /// Domain separation for the bundle signature so it can never be confused
     /// with announce or packet signatures.
-    private static let signingContext = Data("bitchat-prekey-bundle-v1".utf8)
+    private static let signingContext = Data("pilltalk-prekey-bundle-v1".utf8)
 
     private enum TLVType: UInt8 {
         case noiseStaticPublicKey = 0x01

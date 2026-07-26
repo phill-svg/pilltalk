@@ -25,7 +25,7 @@ One gesture (hold mic), one mental model ("talk"), and the system degrades from 
 ## 2. What already exists (reused, not rebuilt)
 
 - **Capture UX:** `ContentComposerView.micButtonView` already implements hold-to-record / release-to-send via `DragGesture`, backed by `VoiceRecordingViewModel`'s state machine and `VoiceRecorder` (AAC-LC, 16 kHz mono, 16 kbps). Mic permission string is already in Info.plist.
-- **Reliable delivery:** `BitchatFilePacket` TLV + `fileTransfer` (0x22) + fragmentation + transfer progress + `ChatMediaTransferCoordinator`.
+- **Reliable delivery:** `PilltalkFilePacket` TLV + `fileTransfer` (0x22) + fragmentation + transfer progress + `ChatMediaTransferCoordinator`.
 - **Playback:** `VoiceNotePlaybackController` + `VoiceNotePlaybackCoordinator` (single active playback), `WaveformView`, `VoiceNoteView`.
 - **Transport:** signed public packets, Noise sessions with typed inner payloads, `RelayController` flood control, `MessageDeduplicator`, `MessageRouter.canDeliverPromptly`.
 
@@ -59,7 +59,7 @@ Audio math: AAC-LC at 16 kHz has 1024-sample frames = **64 ms/frame ≈ 130 B at
 
 ### 3.3 DM: new `NoisePayloadType.voiceFrame = 0x08`
 
-- Inner payload = the same burst framing, wrapped in `noiseEncrypted` (0x11) directed packets — wire-indistinguishable from other DM traffic by size/type (0x04/0x05 are reserved per the comment in `BitchatProtocol.swift`; 0x08 is the first free slot after `groupKeyUpdate = 0x07`).
+- Inner payload = the same burst framing, wrapped in `noiseEncrypted` (0x11) directed packets — wire-indistinguishable from other DM traffic by size/type (0x04/0x05 are reserved per the comment in `PilltalkProtocol.swift`; 0x08 is the first free slot after `groupKeyUpdate = 0x07`).
 - Directed encrypted packets are already always-relayed by `RelayController`, so multi-hop DMs work unchanged.
 - Requires an established session; PTT-live is only offered when `noiseService.hasEstablishedSession` (otherwise first hold triggers the normal handshake + falls back to voice-note for that burst).
 - Fire-and-forget: **no delivery acks, no retransmit** for frames. Late audio is worthless; reliability comes from the finalized note (§5).
@@ -80,7 +80,7 @@ AVAudioEngine input tap (native format)
     to VoiceRecorder), so finalization needs no remux step
 ```
 
-- On release: emit `END`, then hand the finalized `.m4a` to the **existing** `sendVoiceNote` flow. The note's `fileName` embeds the burst ID (`voice_<burstID hex>.m4a`) — that links note↔burst with **zero changes** to `BitchatFilePacket`/Android interop.
+- On release: emit `END`, then hand the finalized `.m4a` to the **existing** `sendVoiceNote` flow. The note's `fileName` embeds the burst ID (`voice_<burstID hex>.m4a`) — that links note↔burst with **zero changes** to `PilltalkFilePacket`/Android interop.
 - On slide-to-cancel: stop tap, emit `CANCELED`, delete local file, skip finalization. UX note: unlike voice notes, live audio already played on the far side cannot be unsent — the recording UI must make "you are live" unmistakable (see §7).
 - Caps: max burst 120 s (matching the voice-note recorder's cap), exactly one outbound burst at a time.
 - Audio session: reuse `VoiceRecorder`'s `.playAndRecord` config; add `.duckOthers`.
@@ -138,11 +138,11 @@ Each relay hop adds ~10–40 ms jitter + radio time. 2–3 hops stays under ~800
 
 | Piece | Where |
 |---|---|
-| `PTTStreamEncoder` (tap → AAC → packets) | `bitchat/Features/voice/` |
-| `PTTBurstPlayer` (jitter buffer → decode → engine) | `bitchat/Features/voice/` |
-| `VoiceBurstFramer` / `VoiceBurstAssembler` (wire encode/decode, caps) | `bitchat/Protocols/` + `bitchat/Services/PTT/` |
+| `PTTStreamEncoder` (tap → AAC → packets) | `pilltalk/Features/voice/` |
+| `PTTBurstPlayer` (jitter buffer → decode → engine) | `pilltalk/Features/voice/` |
+| `VoiceBurstFramer` / `VoiceBurstAssembler` (wire encode/decode, caps) | `pilltalk/Protocols/` + `pilltalk/Services/PTT/` |
 | `MessageType.voiceFrame = 0x29` | `localPackages/BitFoundation/.../MessageType.swift` + `BLEReceivePipeline` / `BLEService.handleReceivedPacket` |
-| `NoisePayloadType.voiceFrame = 0x08` | `BitchatProtocol.swift` + `ChatTransportEventCoordinator` dispatch |
+| `NoisePayloadType.voiceFrame = 0x08` | `PilltalkProtocol.swift` + `ChatTransportEventCoordinator` dispatch |
 | Relay policy case | `RelayController` (fragment-like clamp/jitter) |
 | No-padding rule | `BLEOutboundPacketPolicy` |
 | Pacing/cap constants | `TransportConfig` |

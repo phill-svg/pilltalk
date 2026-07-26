@@ -76,7 +76,7 @@ jobs:
             exit 0
           fi
 
-          if echo "$changed" | grep -Eq '^(localPackages/Arti/(Cargo\.(toml|lock)|build-ios\.sh|arti-bitchat/)|docs/ARTI-BINARY-PROVENANCE\.md)'; then
+          if echo "$changed" | grep -Eq '^(localPackages/Arti/(Cargo\.(toml|lock)|build-ios\.sh|arti-pilltalk/)|docs/ARTI-BINARY-PROVENANCE\.md)'; then
             echo "Binary change is accompanied by provenance inputs."
             exit 0
           fi
