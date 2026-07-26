@@ -64,6 +64,23 @@ async function flushMicrotasks(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+// Simulates a handshake that stalls forever - e.g. the peer never answers, a
+// signaling message gets dropped, or ICE negotiation hangs. createOffer()
+// never resolves, so signaling.initiate()'s returned promise never settles.
+class StallingPeerConnection extends FakePeerConnection {
+  async createOffer(): Promise<{ type: string; sdp: string }> {
+    return new Promise(() => {});
+  }
+}
+
+// Simulates a handshake that fails fast (e.g. ICE gathering fails
+// immediately) - initiate()'s returned promise rejects.
+class FailingPeerConnection extends FakePeerConnection {
+  async createOffer(): Promise<{ type: string; sdp: string }> {
+    throw new Error('ICE failed');
+  }
+}
+
 describe('DmManager', () => {
   it('delivers a message via relay when no direct channel exists', () => {
     const pool = createInMemoryRelayPool();
@@ -215,6 +232,85 @@ describe('DmManager', () => {
     // Past the cooldown window: alice gets another shot at upgrading.
     now += 2_000; // total elapsed: 31s
     alice.sendMessage(bobPub, 'third message, past cooldown');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(2);
+  });
+
+  it('does not start a second concurrent WebRTC initiate() attempt for the same peer while the first is still pending, even past the cooldown', async () => {
+    const pool = createInMemoryRelayPool();
+    const alicePriv = randomKeyHex();
+    const alicePub = getPublicKey(alicePriv);
+    const bobPriv = randomKeyHex();
+    const bobPub = getPublicKey(bobPriv);
+
+    const aliceConnections: StallingPeerConnection[] = [];
+    let now = 1_700_000_000_000;
+
+    const alice = new DmManager(
+      pool,
+      alicePriv,
+      alicePub,
+      () => {},
+      () => {
+        const pc = new StallingPeerConnection();
+        aliceConnections.push(pc);
+        return pc;
+      },
+      () => now,
+    );
+    // No bob DmManager is started, and the fake connection's createOffer()
+    // never resolves - simulating a handshake that stalls forever (peer
+    // never answers, a signaling message gets dropped, ICE hangs). The
+    // signaling.initiate() promise for the first attempt never settles.
+    alice.start();
+
+    alice.sendMessage(bobPub, 'first message');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(1);
+
+    // Past the cooldown window, but the first attempt is still outstanding.
+    // Without in-flight tracking, sendMessage would start a second,
+    // concurrent signaling.initiate() call for the same peer here.
+    now += WEBRTC_RETRY_COOLDOWN_MS + 1_000;
+    alice.sendMessage(bobPub, 'second message, past cooldown but first attempt still pending');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(1);
+  });
+
+  it('allows a new WebRTC upgrade attempt past the cooldown once the previous attempt has settled by rejecting', async () => {
+    const pool = createInMemoryRelayPool();
+    const alicePriv = randomKeyHex();
+    const alicePub = getPublicKey(alicePriv);
+    const bobPriv = randomKeyHex();
+    const bobPub = getPublicKey(bobPriv);
+
+    const aliceConnections: FakePeerConnection[] = [];
+    let now = 1_700_000_000_000;
+    let useFailingConnection = true;
+
+    const alice = new DmManager(
+      pool,
+      alicePriv,
+      alicePub,
+      () => {},
+      () => {
+        const pc = useFailingConnection ? new FailingPeerConnection() : new FakePeerConnection();
+        aliceConnections.push(pc);
+        return pc;
+      },
+      () => now,
+    );
+    alice.start();
+
+    alice.sendMessage(bobPub, 'first message');
+    await flushMicrotasks();
+    expect(aliceConnections).toHaveLength(1);
+
+    // The first attempt rejected (settled), so once the cooldown has also
+    // elapsed, a fresh attempt must be allowed to start.
+    useFailingConnection = false;
+    now += WEBRTC_RETRY_COOLDOWN_MS + 1_000;
+    alice.sendMessage(bobPub, 'second message, past cooldown and prior attempt settled');
     await flushMicrotasks();
     expect(aliceConnections).toHaveLength(2);
   });

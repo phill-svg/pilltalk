@@ -25,6 +25,15 @@ export class DmManager {
   private signaling: WebRtcSignaling;
   private directChannels = new Map<string, DataChannelLike>();
   private lastDirectConnectAttempt = new Map<string, number>();
+  // Peers with a currently-outstanding signaling.initiate() call. The
+  // cooldown above only tracks WHEN an attempt started, not whether it has
+  // settled - a stalled handshake (peer never answers, a signaling message
+  // gets dropped, ICE hangs forever) would otherwise let a second, concurrent
+  // initiate() start for the same peer once the cooldown elapses, resulting
+  // in two RTCPeerConnection setups racing in WebRtcSignaling's internal
+  // connections map. This set makes "in flight" an explicit, independent
+  // condition from "cooldown elapsed".
+  private pendingDirectConnect = new Set<string>();
 
   constructor(
     private pool: RelayPoolLike,
@@ -107,9 +116,13 @@ export class DmManager {
     this.sendRumor(recipientPubkey, content, []);
     const lastAttempt = this.lastDirectConnectAttempt.get(recipientPubkey);
     const cooldownElapsed = lastAttempt === undefined || this.now() - lastAttempt > WEBRTC_RETRY_COOLDOWN_MS;
-    if (cooldownElapsed) {
+    if (cooldownElapsed && !this.pendingDirectConnect.has(recipientPubkey)) {
       this.lastDirectConnectAttempt.set(recipientPubkey, this.now());
-      this.signaling.initiate(recipientPubkey).catch(() => {});
+      this.pendingDirectConnect.add(recipientPubkey);
+      this.signaling
+        .initiate(recipientPubkey)
+        .finally(() => this.pendingDirectConnect.delete(recipientPubkey))
+        .catch(() => {});
     }
   }
 
