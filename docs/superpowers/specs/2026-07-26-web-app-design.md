@@ -73,6 +73,7 @@ Fully static single-page app (vanilla TypeScript, no framework), deployed to Clo
   1. **WebRTC direct** (preferred, once established): messages go straight over an `RTCDataChannel`, no relay involved.
   2. **Nostr NIP-17 fallback**: gift-wrapped events sent to relays, addressed to the recipient's public key. Used when no direct channel exists yet, or WebRTC setup fails.
 - On startup, attempts to open a WebRTC connection to any peer the user has an existing conversation with (see 4.5), upgrading in place from relay-delivered to direct once connected — mirroring "Bluetooth first, Nostr fallback" without the user noticing a transport switch.
+- The upgrade attempt is not one-shot: each relay-fallback send re-attempts the WebRTC handshake for that peer if the last attempt was more than a cooldown period ago (30s in v1) and no direct channel is currently open. This covers both "the peer was offline/ICE failed the first time" and "a previously-open direct channel later closed" with one uniform, time-based rule, so a conversation keeps opportunistically retrying the upgrade for as long as messages keep flowing over relay.
 
 ### 4.5 WebRTC Signaling-over-Nostr
 - No signaling server. To connect to peer B, peer A:
@@ -80,7 +81,7 @@ Fully static single-page app (vanilla TypeScript, no framework), deployed to Clo
   2. Creates an SDP offer, wraps it as a NIP-17 gift-wrapped DM to B's pubkey, with a distinguishing tag (e.g. `["t", "webrtc-offer"]`) so it's routed to the signaling handler rather than the chat UI.
   3. B, listening for such tagged DMs, creates an answer and sends it back the same way; both sides exchange ICE candidates as further tagged DMs.
   4. Once the data channel opens, both sides mark that peer as "direct" and prefer it for further messages.
-- If no answer / no successful `RTCDataChannel.onopen` within a short timeout (~10s), fall back to pure relay delivery for that conversation; the app retries direct connection opportunistically later (e.g. next time both peers are seen active in a shared geohash channel).
+- If no answer / no successful `RTCDataChannel.onopen` within a short timeout (~10s), fall back to pure relay delivery for that conversation. **v1 implementation note:** rather than the more elaborate "retry next time both peers are seen active in a shared geohash channel" (which would require `DmManager` to observe `GeohashChannel`/presence state, coupling two otherwise-independent modules), v1 uses a simple per-peer cooldown: `DmManager` tracks the timestamp of the last WebRTC attempt per peer, and re-attempts on the next relay-fallback `sendMessage` call if more than `WEBRTC_RETRY_COOLDOWN_MS` (30s) has elapsed and no direct channel is currently open for that peer. This achieves the same practical goal — the connection keeps trying to upgrade opportunistically as the conversation continues — with a single, self-contained, easily-testable rule instead of cross-module presence coupling. A future iteration could reintroduce presence-triggered retries as an additional (not replacement) trigger if the 30s cooldown proves too slow in practice.
 
 ### 4.6 UI
 - Single-page layout, closely mirroring the native app's structure: a channel/conversation list (geohash rooms + DM threads) and a message thread pane.

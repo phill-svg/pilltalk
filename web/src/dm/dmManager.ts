@@ -14,11 +14,26 @@ export type DmTransport = 'relay' | 'direct';
 
 const WEBRTC_SIGNAL_TAG = 'webrtc-signal';
 
+// A WebRTC upgrade attempt is retried at most this often per peer. This
+// covers both "the first attempt failed (peer offline, ICE failed)" and
+// "a previously-open direct channel later closed" uniformly, without
+// DmManager needing to know anything about presence or geohash channels.
+export const WEBRTC_RETRY_COOLDOWN_MS = 30_000;
+
 export class DmManager {
   private unsubscribe: (() => void) | null = null;
   private signaling: WebRtcSignaling;
   private directChannels = new Map<string, DataChannelLike>();
-  private attemptedDirectConnect = new Set<string>();
+  private lastDirectConnectAttempt = new Map<string, number>();
+  // Peers with a currently-outstanding signaling.initiate() call. The
+  // cooldown above only tracks WHEN an attempt started, not whether it has
+  // settled - a stalled handshake (peer never answers, a signaling message
+  // gets dropped, ICE hangs forever) would otherwise let a second, concurrent
+  // initiate() start for the same peer once the cooldown elapses, resulting
+  // in two RTCPeerConnection setups racing in WebRtcSignaling's internal
+  // connections map. This set makes "in flight" an explicit, independent
+  // condition from "cooldown elapsed".
+  private pendingDirectConnect = new Set<string>();
 
   constructor(
     private pool: RelayPoolLike,
@@ -26,6 +41,7 @@ export class DmManager {
     private identityPublicKeyHex: string,
     private onMessage: (peerPubkey: string, message: ChatMessage) => void,
     createPeerConnection: PeerConnectionFactory,
+    private now: () => number = () => Date.now(),
   ) {
     this.signaling = new WebRtcSignaling(
       createPeerConnection,
@@ -98,9 +114,15 @@ export class DmManager {
       return;
     }
     this.sendRumor(recipientPubkey, content, []);
-    if (!this.attemptedDirectConnect.has(recipientPubkey)) {
-      this.attemptedDirectConnect.add(recipientPubkey);
-      this.signaling.initiate(recipientPubkey).catch(() => {});
+    const lastAttempt = this.lastDirectConnectAttempt.get(recipientPubkey);
+    const cooldownElapsed = lastAttempt === undefined || this.now() - lastAttempt > WEBRTC_RETRY_COOLDOWN_MS;
+    if (cooldownElapsed && !this.pendingDirectConnect.has(recipientPubkey)) {
+      this.lastDirectConnectAttempt.set(recipientPubkey, this.now());
+      this.pendingDirectConnect.add(recipientPubkey);
+      this.signaling
+        .initiate(recipientPubkey)
+        .finally(() => this.pendingDirectConnect.delete(recipientPubkey))
+        .catch(() => {});
     }
   }
 
