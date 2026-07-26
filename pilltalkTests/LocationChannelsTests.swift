@@ -31,8 +31,8 @@ struct LocationChannelsTests {
         let filter = NostrFilter.geohashEphemeral(gh)
         let data = try JSONEncoder().encode(filter)
         let json = String(data: data, encoding: .utf8) ?? ""
-        // Expect kinds includes 20000 and tag filter '#g':[gh]
-        #expect(json.contains("20000"))
+        // Expect kinds includes 21000 and tag filter '#g':[gh]
+        #expect(json.contains("21000"))
         #expect(json.contains("\"#g\":[\"\(gh)\"]"))
     }
 

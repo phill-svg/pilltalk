@@ -77,7 +77,7 @@ final class PerformanceBaselineTests: XCTestCase {
     // MARK: - 1a. Nostr inbound event handling (fresh events)
 
     /// `NostrInboundPipeline.handleNostrEvent` for never-seen geo events
-    /// (kind 20000): signature verification, dedup record, presence/nickname
+    /// (kind 21000): signature verification, dedup record, presence/nickname
     /// bookkeeping, and public-message ingest scheduling.
     func testNostrInboundEventHandling_freshEvents() throws {
         let events = try Self.makeSignedGeohashEvents(count: 500)
@@ -542,7 +542,7 @@ final class PerformanceBaselineTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    /// Builds deterministic signed kind-20000 geohash events. Content cycles
+    /// Builds deterministic signed kind-21000 geohash events. Content cycles
     /// through realistic chat lines; a handful of sender identities mimics a
     /// busy channel.
     private static func makeSignedGeohashEvents(count: Int) throws -> [NostrEvent] {

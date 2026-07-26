@@ -2,7 +2,7 @@
 // GeohashPresenceTests.swift
 // pilltalkTests
 //
-// Tests for the Geohash Presence (Kind 20001) feature.
+// Tests for the Geohash Presence (Kind 21001) feature.
 // This is free and unencumbered software released into the public domain.
 //
 
@@ -23,7 +23,7 @@ struct NostrProtocolPresenceTests {
         )
 
         #expect(event.kind == NostrProtocol.EventKind.geohashPresence.rawValue)
-        #expect(event.kind == 20001)
+        #expect(event.kind == 21001)
     }
 
     @Test func createGeohashPresenceEvent_hasEmptyContent() throws {
@@ -108,8 +108,8 @@ struct NostrFilterPresenceTests {
     @Test func geohashEphemeral_includesBothKinds() {
         let filter = NostrFilter.geohashEphemeral("u4pruydq")
 
-        #expect(filter.kinds?.contains(20000) == true)
-        #expect(filter.kinds?.contains(20001) == true)
+        #expect(filter.kinds?.contains(21000) == true)
+        #expect(filter.kinds?.contains(21001) == true)
     }
 
     @Test func geohashEphemeral_hasLimit1000() {
@@ -138,7 +138,7 @@ struct ChatViewModelPresenceHandlingTests {
         // Set up the channel
         viewModel.switchLocationChannel(to: .location(GeohashChannel(level: .city, geohash: geohash)))
 
-        // Create a presence event (kind 20001)
+        // Create a presence event (kind 21001)
         let identity = try NostrIdentity.generate()
         let event = NostrEvent(
             pubkey: identity.publicKeyHex,
@@ -168,7 +168,7 @@ struct ChatViewModelPresenceHandlingTests {
 
         let initialMessageCount = viewModel.messages.count
 
-        // Create a presence event (kind 20001)
+        // Create a presence event (kind 21001)
         let identity = try NostrIdentity.generate()
         let event = NostrEvent(
             pubkey: identity.publicKeyHex,
@@ -193,7 +193,7 @@ struct ChatViewModelPresenceHandlingTests {
 
         viewModel.switchLocationChannel(to: .location(GeohashChannel(level: .city, geohash: geohash)))
 
-        // Create a chat event (kind 20000) - NOT presence
+        // Create a chat event (kind 21000) - NOT presence
         let identity = try NostrIdentity.generate()
         let event = NostrEvent(
             pubkey: identity.publicKeyHex,
@@ -219,8 +219,8 @@ struct ChatViewModelPresenceHandlingTests {
         let chatKind = NostrProtocol.EventKind.ephemeralEvent.rawValue
 
         #expect(presenceKind != chatKind)
-        #expect(presenceKind == 20001)
-        #expect(chatKind == 20000)
+        #expect(presenceKind == 21001)
+        #expect(chatKind == 21000)
     }
 
     @Test func subscribeNostrEvent_acceptsPresenceKind() async throws {
@@ -240,7 +240,7 @@ struct ChatViewModelPresenceHandlingTests {
         )
         let signed = try event.sign(with: identity.schnorrSigningKey())
 
-        // subscribeNostrEvent should accept kind 20001
+        // subscribeNostrEvent should accept kind 21001
         viewModel.subscribeNostrEvent(signed)
 
         try? await Task.sleep(nanoseconds: 50_000_000)
@@ -517,20 +517,20 @@ struct LocationChannelsDisplayLogicTests {
 struct NostrEventKindTests {
 
     @Test func eventKind_geohashPresence_is20001() {
-        #expect(NostrProtocol.EventKind.geohashPresence.rawValue == 20001)
+        #expect(NostrProtocol.EventKind.geohashPresence.rawValue == 21001)
     }
 
     @Test func eventKind_ephemeralEvent_is20000() {
-        #expect(NostrProtocol.EventKind.ephemeralEvent.rawValue == 20000)
+        #expect(NostrProtocol.EventKind.ephemeralEvent.rawValue == 21000)
     }
 
     @Test func eventKind_presenceIsEphemeral() {
-        // Both 20000 and 20001 are in the ephemeral range (20000-29999)
+        // Both 21000 and 21001 are in the ephemeral range (21000-29999)
         let presenceKind = NostrProtocol.EventKind.geohashPresence.rawValue
         let chatKind = NostrProtocol.EventKind.ephemeralEvent.rawValue
 
-        #expect(presenceKind >= 20000 && presenceKind < 30000)
-        #expect(chatKind >= 20000 && chatKind < 30000)
+        #expect(presenceKind >= 21000 && presenceKind < 30000)
+        #expect(chatKind >= 21000 && chatKind < 30000)
     }
 }
 

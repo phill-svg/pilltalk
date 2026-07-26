@@ -10,7 +10,7 @@ describe('GeohashChannel', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('publishes a signed kind-20000 chat event tagged with the geohash and nickname', () => {
+  it('publishes a signed kind-21000 chat event tagged with the geohash and nickname', () => {
     const pool = createInMemoryRelayPool();
     const received: unknown[] = [];
     pool.subscribe({ kinds: [KIND_GEOHASH_CHAT] }, (e) => received.push(e));

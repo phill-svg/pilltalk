@@ -3,7 +3,7 @@
 // pilltalkTests
 //
 // Tests for NIP-13 proof-of-work: leading-zero-bit counting, commitment
-// semantics, and nonce-tag mining for geohash (kind 20000) events.
+// semantics, and nonce-tag mining for geohash (kind 21000) events.
 //
 
 import CryptoKit
@@ -92,7 +92,7 @@ struct NostrPoWTests {
         let nonceTag = try #require(await NostrPoW.mineNonceTag(
             pubkey: pubkey,
             createdAt: createdAt,
-            kind: 20000,
+            kind: 21000,
             tags: baseTags,
             content: content,
             targetBits: 8
@@ -107,7 +107,7 @@ struct NostrPoWTests {
         let idData = try Self.eventIDHash(
             pubkey: pubkey,
             createdAt: createdAt,
-            kind: 20000,
+            kind: 21000,
             tags: baseTags + [nonceTag],
             content: content
         )
@@ -128,7 +128,7 @@ struct NostrPoWTests {
         let nonceTag = try #require(await NostrPoW.mineNonceTag(
             pubkey: pubkey,
             createdAt: createdAt,
-            kind: 20000,
+            kind: 21000,
             tags: baseTags,
             content: content,
             targetBits: 4
@@ -137,7 +137,7 @@ struct NostrPoWTests {
         let idData = try Self.eventIDHash(
             pubkey: pubkey,
             createdAt: createdAt,
-            kind: 20000,
+            kind: 21000,
             tags: baseTags + [nonceTag],
             content: content
         )
@@ -179,7 +179,7 @@ struct NostrPoWTests {
             await NostrPoW.mineNonceTag(
                 pubkey: pubkey,
                 createdAt: createdAt,
-                kind: 20000,
+                kind: 21000,
                 tags: baseTags,
                 content: content,
                 targetBits: 240 // unreachable: forces the cap/cancel path
@@ -196,7 +196,7 @@ struct NostrPoWTests {
             let idData = try Self.eventIDHash(
                 pubkey: pubkey,
                 createdAt: createdAt,
-                kind: 20000,
+                kind: 21000,
                 tags: baseTags + [nonceTag],
                 content: content
             )

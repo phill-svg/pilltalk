@@ -36,7 +36,7 @@ struct BridgeServiceTests {
         private(set) var published: [(event: NostrEvent, cell: String)] = []
 
         /// Published chat messages only — the fixture's own presence
-        /// heartbeats (kind 20001, sent on enable) are filtered out.
+        /// heartbeats (kind 21001, sent on enable) are filtered out.
         var publishedMessages: [(event: NostrEvent, cell: String)] {
             published.filter { $0.event.kind == NostrProtocol.EventKind.ephemeralEvent.rawValue }
         }

@@ -106,7 +106,7 @@ private extension NostrRelayManagerDependencies {
 @MainActor
 final class NostrRelayManager: ObservableObject {
     static let shared = NostrRelayManager()
-    // Track gift-wraps (kind 1059) we initiated so we can log OK acks at info
+    // Track gift-wraps (kind 7059, PillTalk-specific) we initiated so we can log OK acks at info
     private(set) static var pendingGiftWrapIDs = Set<String>()
     static func registerPendingGiftWrap(id: String) {
         pendingGiftWrapIDs.insert(id)
@@ -124,7 +124,12 @@ final class NostrRelayManager: ObservableObject {
         var nextReconnectTime: Date?
     }
     
-    // Default relays carry NIP-17 gift wraps, so avoid relays known to reject kind 1059.
+    // These relays were originally chosen for reliably carrying standard
+    // NIP-17 gift wraps (kind 1059). Now using PillTalk-specific kind 7059
+    // instead (see NostrProtocol.EventKind) for network isolation from
+    // upstream bitchat -- most well-behaved relays accept any valid event
+    // kind regardless of whether they recognize it, but this hasn't been
+    // exhaustively verified against every relay in this list yet.
     private static let defaultRelays = [
         "wss://relay.damus.io",
         "wss://nos.lol",
@@ -1139,7 +1144,7 @@ final class NostrRelayManager: ObservableObject {
             guard shouldDeliverInboundEvent(subscriptionID: subId, eventID: event.id) else {
                 return
             }
-            if event.kind != 1059 {
+            if event.kind != 7059 {
                 // Per-event logging floods dev builds in busy geohashes; sample it.
                 inboundEventLogCount += 1
                 if inboundEventLogCount == 1 || inboundEventLogCount.isMultiple(of: TransportConfig.nostrInboundEventLogInterval) {
@@ -1613,17 +1618,18 @@ struct NostrFilter: Encodable {
     // For NIP-17 gift wraps
     static func giftWrapsFor(pubkey: String, since: Date? = nil) -> NostrFilter {
         var filter = NostrFilter()
-        filter.kinds = [1059] // Gift wrap kind
+        filter.kinds = [7059] // PillTalk-specific gift wrap kind (was 1059 in upstream bitchat)
         filter.since = since?.timeIntervalSince1970.toInt()
         filter.tagFilters = ["p": [pubkey]]
         filter.limit = TransportConfig.nostrRelayDefaultFetchLimit // reasonable limit
         return filter
     }
 
-    // For location channels: geohash-scoped ephemeral events (kind 20000) and presence (kind 20001)
+    // For location channels: geohash-scoped ephemeral events (kind 21000) and presence (kind 21001)
+    // -- PillTalk-specific kinds, was 20000/20001 in upstream bitchat.
     static func geohashEphemeral(_ geohash: String, since: Date? = nil, limit: Int = 1000) -> NostrFilter {
         var filter = NostrFilter()
-        filter.kinds = [20000, 20001]
+        filter.kinds = [21000, 21001]
         filter.since = since?.timeIntervalSince1970.toInt()
         filter.tagFilters = ["g": [geohash]]
         filter.limit = limit
@@ -1650,11 +1656,12 @@ struct NostrFilter: Encodable {
         return filter
     }
 
-    // For the mesh bridge: rendezvous messages (kind 20000) and presence
-    // (kind 20001) tagged `#r` with one or more cells (own + neighbors).
+    // For the mesh bridge: rendezvous messages (kind 21000) and presence
+    // (kind 21001) tagged `#r` with one or more cells (own + neighbors).
+    // PillTalk-specific kinds, was 20000/20001 in upstream bitchat.
     static func bridgeRendezvous(_ cells: [String], since: Date? = nil, limit: Int = 200) -> NostrFilter {
         var filter = NostrFilter()
-        filter.kinds = [20000, 20001]
+        filter.kinds = [21000, 21001]
         filter.since = since?.timeIntervalSince1970.toInt()
         filter.tagFilters = ["r": cells]
         filter.limit = limit

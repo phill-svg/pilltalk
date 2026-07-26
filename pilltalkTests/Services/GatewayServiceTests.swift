@@ -162,7 +162,7 @@ struct GatewayServiceTests {
     func structuralGates() throws {
         let fixture = Fixture()
 
-        // Wrong kind (kind-1 text note instead of kind-20000 ephemeral).
+        // Wrong kind (kind-1 text note instead of kind-21000 ephemeral).
         let identity = try NostrIdentity.generate()
         let note = try NostrProtocol.createGeohashTextNote(
             content: "note",

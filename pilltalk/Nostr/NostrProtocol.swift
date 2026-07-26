@@ -16,9 +16,13 @@ struct NostrProtocol {
         case textNote = 1
         case dm = 14 // NIP-17 DM rumor kind
         case seal = 13 // NIP-17 sealed event
-        case giftWrap = 1059 // NIP-59 gift wrap
-        case ephemeralEvent = 20000
-        case geohashPresence = 20001
+        // PillTalk-specific kind numbers (deliberately different from
+        // upstream bitchat's 1059/20000/20001) so PillTalk's geohash rooms
+        // and DMs form a genuinely separate network -- not mixed in with
+        // bitchat's real public user base on the same relays.
+        case giftWrap = 7059 // was NIP-59's standard 1059 in upstream bitchat
+        case ephemeralEvent = 21000 // was 20000 in upstream bitchat
+        case geohashPresence = 21001 // was 20001 in upstream bitchat
         case deletion = 5 // NIP-09 event deletion request
         /// Sealed courier envelope parked on relays under its rotating
         /// recipient tag (`#x`). Regular (stored) kind so it survives until
@@ -167,7 +171,7 @@ struct NostrProtocol {
     }
     #endif
 
-    /// Create a geohash-scoped ephemeral public message (kind 20000)
+    /// Create a geohash-scoped ephemeral public message (kind 21000)
     static func createEphemeralGeohashEvent(
         content: String,
         geohash: String,
@@ -186,7 +190,7 @@ struct NostrProtocol {
         return try event.sign(with: schnorrKey)
     }
 
-    /// Create a kind-20000 geohash message carrying a NIP-13 proof-of-work
+    /// Create a kind-21000 geohash message carrying a NIP-13 proof-of-work
     /// nonce tag (see `NostrPoW`). Mining runs off the calling actor and is
     /// bounded by `NostrPoW.miningTimeCap`; when the cap hits (or the
     /// surrounding task is cancelled) the event ships at the highest
@@ -225,7 +229,7 @@ struct NostrProtocol {
         return try event.sign(with: schnorrKey)
     }
 
-    /// Tags for a kind-20000 geohash message (shared by the plain and mined
+    /// Tags for a kind-21000 geohash message (shared by the plain and mined
     /// variants).
     private static func ephemeralGeohashTags(
         geohash: String,
@@ -242,7 +246,7 @@ struct NostrProtocol {
         return tags
     }
 
-    /// Create a geohash presence heartbeat (kind 20001)
+    /// Create a geohash presence heartbeat (kind 21001)
     /// Must contain empty content and NO nickname tag
     static func createGeohashPresenceEvent(
         geohash: String,
@@ -262,7 +266,7 @@ struct NostrProtocol {
 
     // MARK: - Mesh bridge (rendezvous) events
 
-    /// Create a mesh-bridge public message (kind 20000) for a geohash-cell
+    /// Create a mesh-bridge public message (kind 21000) for a geohash-cell
     /// rendezvous. The distinct `r` tag keeps bridge traffic out of geohash
     /// channel subscriptions (which filter on `#g`); `m` is
     /// `[stable ID, mesh sender ID, wire timestamp in ms]`. Element 1 is the
@@ -302,7 +306,7 @@ struct NostrProtocol {
         return try event.sign(with: schnorrKey)
     }
 
-    /// Create a mesh-bridge presence heartbeat (kind 20001) on a rendezvous
+    /// Create a mesh-bridge presence heartbeat (kind 21001) on a rendezvous
     /// cell: empty content, `r` tag only — the bridge analogue of geohash
     /// presence, counted into "people across the bridge".
     static func createBridgePresenceEvent(

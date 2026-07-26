@@ -26,7 +26,7 @@ struct NearbyConversation: Equatable, Sendable {
     let lastMessage: GeohashChatPreview
 }
 
-/// Records kind-20000 chat events seen by the background geohash sampling
+/// Records kind-21000 chat events seen by the background geohash sampling
 /// subscriptions (blocked and self senders are filtered by the caller) and
 /// answers "where nearby is a conversation actually happening?".
 @MainActor

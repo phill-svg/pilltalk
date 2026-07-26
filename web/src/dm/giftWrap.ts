@@ -6,7 +6,11 @@ import { bytesToHex } from '@noble/hashes/utils';
 
 export const KIND_DM_RUMOR = 14;
 export const KIND_SEAL = 13;
-export const KIND_GIFT_WRAP = 1059;
+// PillTalk-specific (was 1059, NIP-59's standard gift-wrap kind, in upstream
+// bitchat) -- seal/rumor kinds never appear on the wire in plaintext (they're
+// inside the encrypted envelope), so only the outer gift-wrap kind needs to
+// differ for network isolation from bitchat's real public user base.
+export const KIND_GIFT_WRAP = 7059;
 
 export interface Rumor {
   pubkey: string;

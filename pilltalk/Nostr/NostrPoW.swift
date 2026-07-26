@@ -4,7 +4,7 @@ import Foundation
 
 /// NIP-13 proof-of-work for Nostr events.
 ///
-/// Outgoing kind-20000 geohash messages mine a `["nonce", "<value>", "<target>"]`
+/// Outgoing kind-21000 geohash messages mine a `["nonce", "<value>", "<target>"]`
 /// tag so the event ID carries at least `target` leading zero bits. Inbound
 /// events are scored (never hard-rejected — the network has clients that do
 /// not mine): validated PoW at or above `rateLimitBypassBits` relaxes the

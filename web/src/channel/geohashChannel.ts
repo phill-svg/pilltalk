@@ -3,8 +3,11 @@ import type { NostrEvent, UnsignedEvent } from '../nostr/event';
 import { getPublicKey, signEvent, verifyEvent } from '../nostr/event';
 import { broadcastsPresence, deriveGeohashKey } from '../geohash/geohash';
 
-export const KIND_GEOHASH_CHAT = 20000;
-export const KIND_GEOHASH_PRESENCE = 20001;
+// PillTalk-specific kind numbers (deliberately different from upstream
+// bitchat's 20000/20001) so PillTalk's geohash rooms form a genuinely
+// separate network from bitchat's real public user base on the same relays.
+export const KIND_GEOHASH_CHAT = 21000; // was 20000 in upstream bitchat
+export const KIND_GEOHASH_PRESENCE = 21001; // was 20001 in upstream bitchat
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 const PRESENCE_MIN_MS = 40_000;

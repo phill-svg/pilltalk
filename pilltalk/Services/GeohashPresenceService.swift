@@ -2,7 +2,7 @@
 // GeohashPresenceService.swift
 // pilltalk
 //
-// Manages the broadcasting of ephemeral presence heartbeats (Kind 20001)
+// Manages the broadcasting of ephemeral presence heartbeats (Kind 21001)
 // to geohash location channels.
 //
 // This is free and unencumbered software released into the public domain.
@@ -36,7 +36,7 @@ private final class GeohashPresenceTimerAdapter: GeohashPresenceTimerProtocol {
 ///
 /// Behavior:
 /// - Monitors location changes via LocationStateManager
-/// - Broadcasts Kind 20001 events to low-precision geohash channels
+/// - Broadcasts Kind 21001 events to low-precision geohash channels
 /// - Uses randomized timing (40-80s loop) and decorrelated bursts
 /// - Respects privacy by NOT broadcasting to Neighborhood/Block/Building levels
 @MainActor
