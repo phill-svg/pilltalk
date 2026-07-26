@@ -4,6 +4,7 @@ import { GeohashChannel } from './channel/geohashChannel';
 import { GEOHASH_PRECISION, geohashEncode } from './geohash/geohash';
 import { DmManager } from './dm/dmManager';
 import type { PeerConnectionLike } from './webrtc/signaling';
+import { loadContacts, upsertContact, findContact, type Contact } from './contacts/contacts';
 import { appendGeohashMessage, appendDmMessage, renderParticipantCount, renderTransport } from './ui/render';
 
 const RELAY_URLS = [
@@ -20,6 +21,10 @@ function byId<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
+function shortPubkey(pubkey: string): string {
+  return pubkey.slice(0, 8);
+}
+
 async function currentGeohash(): Promise<string> {
   if (!navigator.geolocation) return DEFAULT_GEOHASH;
   return new Promise((resolve) => {
@@ -33,20 +38,39 @@ async function currentGeohash(): Promise<string> {
 
 async function main(): Promise<void> {
   const identity = loadOrCreateIdentity(window.localStorage);
-  byId('pubkey-label').textContent = identity.publicKeyHex.slice(0, 12);
+
+  const pubkeyLabelEl = byId<HTMLButtonElement>('pubkey-label');
+  pubkeyLabelEl.textContent = identity.publicKeyHex.slice(0, 12);
+  pubkeyLabelEl.addEventListener('click', () => {
+    void navigator.clipboard.writeText(identity.publicKeyHex).then(() => {
+      pubkeyLabelEl.textContent = 'copied';
+      setTimeout(() => {
+        pubkeyLabelEl.textContent = identity.publicKeyHex.slice(0, 12);
+      }, 1200);
+    });
+  });
 
   const pool = new RelayPool(RELAY_URLS, (url) => new WebSocket(url) as unknown as MinimalWebSocket);
 
+  // --- Geohash room ---
   const geohash = await currentGeohash();
   byId('geohash-label').textContent = geohash;
   const messagesEl = byId('messages');
   const participantCountEl = byId('participant-count');
+  const channelSignalEl = byId('channel-signal');
+
+  function updateChannelSignal(): void {
+    const count = channel.getParticipantCount();
+    renderParticipantCount(participantCountEl, count);
+    channelSignalEl.dataset.level = count.exact ? String(Math.min(count.count, 4)) : 'unknown';
+  }
+
   const channel = new GeohashChannel(pool, identity.privateKeyHex, geohash, (message) => {
     appendGeohashMessage(messagesEl, message);
-    renderParticipantCount(participantCountEl, channel.getParticipantCount());
+    updateChannelSignal();
   });
   channel.join();
-  renderParticipantCount(participantCountEl, channel.getParticipantCount());
+  updateChannelSignal();
 
   byId<HTMLFormElement>('geohash-form').addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -56,17 +80,111 @@ async function main(): Promise<void> {
     input.value = '';
   });
 
+  // --- Contacts + direct messages ---
+  let contacts: Contact[] = loadContacts(window.localStorage);
+  let activeRecipient: string | null = null;
+
+  const contactListEl = byId('contact-list');
+  const addContactForm = byId<HTMLFormElement>('add-contact-form');
+  const newContactPubkeyInput = byId<HTMLInputElement>('new-contact-pubkey');
+  const newContactNameInput = byId<HTMLInputElement>('new-contact-name');
+  const activeRecipientEl = byId('active-recipient');
+  const activeRecipientLabelEl = byId('active-recipient-label');
+  const activeRecipientPubkeyEl = byId('active-recipient-pubkey');
+  const dmInput = byId<HTMLInputElement>('dm-input');
   const dmMessagesEl = byId('dm-messages');
   const dmTransportEl = byId('dm-transport');
+  const dmSignalEl = byId('dm-signal');
+
+  function contactLabel(pubkey: string): string {
+    return findContact(contacts, pubkey)?.label ?? shortPubkey(pubkey);
+  }
+
+  function updateDmSignal(): void {
+    if (!activeRecipient) {
+      dmTransportEl.textContent = '';
+      dmSignalEl.removeAttribute('data-transport');
+      return;
+    }
+    const transport = dmManager.getTransport(activeRecipient);
+    renderTransport(dmTransportEl, transport);
+    dmSignalEl.dataset.transport = transport;
+  }
+
+  function renderContactList(): void {
+    contactListEl.innerHTML = '';
+    for (const contact of contacts) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = contact.pubkey === activeRecipient ? 'contact-chip is-active' : 'contact-chip';
+      chip.textContent = contact.label;
+      chip.title = contact.pubkey;
+      chip.addEventListener('click', () => selectRecipient(contact.pubkey));
+      contactListEl.append(chip);
+    }
+    const addChip = document.createElement('button');
+    addChip.type = 'button';
+    addChip.className = 'contact-chip is-add';
+    addChip.textContent = '+ Add';
+    addChip.addEventListener('click', () => {
+      addContactForm.classList.toggle('is-open');
+      if (addContactForm.classList.contains('is-open')) newContactPubkeyInput.focus();
+    });
+    contactListEl.append(addChip);
+  }
+
+  function selectRecipient(pubkey: string): void {
+    activeRecipient = pubkey;
+    addContactForm.classList.remove('is-open');
+    activeRecipientEl.hidden = false;
+    activeRecipientLabelEl.textContent = contactLabel(pubkey);
+    activeRecipientPubkeyEl.textContent = shortPubkey(pubkey);
+    dmInput.disabled = false;
+    renderContactList();
+    updateDmSignal();
+  }
+
+  renderContactList();
+
+  addContactForm.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const pubkey = newContactPubkeyInput.value.trim();
+    const name = newContactNameInput.value.trim();
+    if (!pubkey || !name) return;
+    contacts = upsertContact(window.localStorage, pubkey, name);
+    newContactPubkeyInput.value = '';
+    newContactNameInput.value = '';
+    selectRecipient(pubkey);
+  });
+
+  messagesEl.addEventListener('click', (ev) => {
+    const target = (ev.target as HTMLElement).closest<HTMLElement>('.geohash-message');
+    const pubkey = target?.dataset.pubkey;
+    if (!pubkey || pubkey === identity.publicKeyHex) return;
+    if (findContact(contacts, pubkey)) {
+      selectRecipient(pubkey);
+    } else {
+      addContactForm.classList.add('is-open');
+      newContactPubkeyInput.value = pubkey;
+      newContactNameInput.value = '';
+      newContactNameInput.focus();
+    }
+  });
+
   const createPeerConnection = (): PeerConnectionLike =>
     new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }) as unknown as PeerConnectionLike;
+
   const dmManager = new DmManager(
     pool,
     identity.privateKeyHex,
     identity.publicKeyHex,
     (peerPubkey, message) => {
-      appendDmMessage(dmMessagesEl, message, false);
-      renderTransport(dmTransportEl, dmManager.getTransport(peerPubkey));
+      if (!findContact(contacts, peerPubkey)) {
+        contacts = upsertContact(window.localStorage, peerPubkey, shortPubkey(peerPubkey));
+        renderContactList();
+      }
+      appendDmMessage(dmMessagesEl, message, false, contactLabel(peerPubkey));
+      if (peerPubkey === activeRecipient) updateDmSignal();
     },
     createPeerConnection,
   );
@@ -74,13 +192,11 @@ async function main(): Promise<void> {
 
   byId<HTMLFormElement>('dm-form').addEventListener('submit', (ev) => {
     ev.preventDefault();
-    const recipient = byId<HTMLInputElement>('dm-recipient').value.trim();
-    const input = byId<HTMLInputElement>('dm-input');
-    if (!recipient || !input.value.trim()) return;
-    dmManager.sendMessage(recipient, input.value);
-    appendDmMessage(dmMessagesEl, { fromPubkey: identity.publicKeyHex, content: input.value, createdAt: Date.now() / 1000 }, true);
-    renderTransport(dmTransportEl, dmManager.getTransport(recipient));
-    input.value = '';
+    if (!activeRecipient || !dmInput.value.trim()) return;
+    dmManager.sendMessage(activeRecipient, dmInput.value);
+    appendDmMessage(dmMessagesEl, { fromPubkey: identity.publicKeyHex, content: dmInput.value, createdAt: Date.now() / 1000 }, true, 'You');
+    updateDmSignal();
+    dmInput.value = '';
   });
 
   byId('wipe-button').addEventListener('click', () => {

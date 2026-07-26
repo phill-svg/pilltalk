@@ -12,14 +12,27 @@ describe('render helpers', () => {
     expect(container.textContent).toContain('hey');
   });
 
-  it('appends a DM message and marks own messages with a distinct class', () => {
+  it('exposes the sender pubkey on the message element so the UI can wire click-to-DM', () => {
     const container = document.createElement('div');
-    appendDmMessage(container, { fromPubkey: 'a'.repeat(64), content: 'hi', createdAt: 1700000000 }, true);
-    appendDmMessage(container, { fromPubkey: 'b'.repeat(64), content: 'hey back', createdAt: 1700000001 }, false);
+    appendGeohashMessage(container, { pubkey: 'a'.repeat(64), nickname: 'phill', content: 'hey', createdAt: 1700000000 });
+
+    const el = container.firstElementChild as HTMLElement;
+    expect(el.dataset.pubkey).toBe('a'.repeat(64));
+    expect(el.querySelector('.sender')?.getAttribute('title')).toContain('a'.repeat(64));
+  });
+
+  it('appends a DM message with a sender label and marks own messages with a distinct class', () => {
+    const container = document.createElement('div');
+    appendDmMessage(container, { fromPubkey: 'a'.repeat(64), content: 'hi', createdAt: 1700000000 }, true, 'You');
+    appendDmMessage(container, { fromPubkey: 'b'.repeat(64), content: 'hey back', createdAt: 1700000001 }, false, 'Bao');
 
     expect(container.children).toHaveLength(2);
     expect((container.children[0] as HTMLElement).classList.contains('own')).toBe(true);
+    expect(container.children[0]!.textContent).toContain('You');
+    expect(container.children[0]!.textContent).toContain('hi');
     expect((container.children[1] as HTMLElement).classList.contains('own')).toBe(false);
+    expect(container.children[1]!.textContent).toContain('Bao');
+    expect(container.children[1]!.textContent).toContain('hey back');
   });
 
   it('renders an exact participant count when precision allows it', () => {

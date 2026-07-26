@@ -5,38 +5,357 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PillTalk</title>
     <style>
-      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 1rem; }
-      section { border: 1px solid #ccc; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; }
-      .geohash-message, .dm-message { padding: 0.25rem 0; }
-      .dm-message.own { text-align: right; color: #2a6; }
-      form { display: flex; gap: 0.5rem; }
-      input[type="text"] { flex: 1; }
-      #messages, #dm-messages { max-height: 240px; overflow-y: auto; margin-bottom: 0.5rem; }
+      :root {
+        color-scheme: dark;
+        --void: #15110c;
+        --panel: #1c160f;
+        --line: #382d20;
+        --line-bright: #5c4a32;
+        --amber: #ffa53d;
+        --amber-dim: #6b4a26;
+        --verdigris: #5cb89f;
+        --bone: #ede3d1;
+        --bone-dim: #8f8474;
+        --rust: #c1523a;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+        --display: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--void);
+        background-image:
+          radial-gradient(ellipse at top, rgba(255, 165, 61, 0.07), transparent 60%),
+          repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 3px);
+        color: var(--bone);
+        font-family: var(--display);
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        justify-content: center;
+        padding: 2.5rem 1rem;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: 640px;
+        height: fit-content;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 30px 60px -30px rgba(0, 0, 0, 0.85);
+      }
+
+      .console-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        min-width: 0;
+      }
+
+      .brand .mark {
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--amber);
+        font-size: 1rem;
+        white-space: nowrap;
+      }
+
+      .id-chip {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--bone-dim);
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--line);
+        padding: 0.2rem 0.5rem;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+      .id-chip:hover { border-color: var(--amber); color: var(--amber); }
+      .id-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+      button#wipe-button {
+        appearance: none;
+        background: transparent;
+        border: 1px solid var(--rust);
+        color: var(--rust);
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        font-weight: 700;
+        padding: 0.4rem 0.65rem;
+        cursor: pointer;
+        flex: none;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      button#wipe-button:hover { background: var(--rust); color: var(--void); }
+      button#wipe-button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+      .panel {
+        padding: 1.1rem 1.25rem 1.25rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .panel:last-of-type { border-bottom: none; }
+
+      .panel-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin: 0 0 0.5rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--bone-dim);
+      }
+
+      .readout {
+        font-family: var(--mono);
+        color: var(--amber);
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--line-bright);
+        padding: 0.1rem 0.4rem;
+        font-size: 0.78rem;
+        letter-spacing: normal;
+        text-transform: none;
+        margin-left: 0.4rem;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        text-transform: none;
+        letter-spacing: 0.02em;
+      }
+      .status span[id] { color: var(--bone); }
+
+      .signal-bars {
+        display: inline-flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 10px;
+      }
+      .signal-bars i {
+        display: block;
+        width: 3px;
+        background: var(--line-bright);
+        border-radius: 1px;
+        font-style: normal;
+      }
+      .signal-bars i:nth-child(1) { height: 3px; }
+      .signal-bars i:nth-child(2) { height: 5px; }
+      .signal-bars i:nth-child(3) { height: 7px; }
+      .signal-bars i:nth-child(4) { height: 10px; }
+
+      #channel-signal[data-level="1"] i:nth-child(1) { background: var(--amber); }
+      #channel-signal[data-level="2"] i:nth-child(-n+2) { background: var(--amber); }
+      #channel-signal[data-level="3"] i:nth-child(-n+3) { background: var(--amber); }
+      #channel-signal[data-level="4"] i { background: var(--amber); }
+      #channel-signal[data-level="unknown"] i { animation: blink 1.8s ease-in-out infinite; }
+      #channel-signal[data-level="unknown"] i:nth-child(2) { animation-delay: 0.15s; }
+      #channel-signal[data-level="unknown"] i:nth-child(3) { animation-delay: 0.3s; }
+      #channel-signal[data-level="unknown"] i:nth-child(4) { animation-delay: 0.45s; }
+
+      #dm-signal[data-transport="relay"] i:nth-child(-n+2) { background: var(--amber-dim); }
+      #dm-signal[data-transport="direct"] i { background: var(--verdigris); }
+
+      @keyframes blink { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .signal-bars i { animation: none !important; }
+      }
+
+      .log {
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.2);
+        padding: 0.65rem 0.75rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+      .log:empty::before {
+        content: "— no traffic yet —";
+        color: var(--bone-dim);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.03em;
+      }
+
+      .geohash-message { padding: 0.15rem 0; }
+      .geohash-message .sender {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--verdigris);
+        font-weight: 600;
+        cursor: pointer;
+        border-bottom: 1px dotted transparent;
+      }
+      .geohash-message .sender:hover { border-bottom-color: var(--verdigris); }
+
+      .dm-message {
+        padding: 0.3rem 0;
+        border-bottom: 1px dashed var(--line);
+      }
+      .dm-message:last-child { border-bottom: none; }
+      .dm-message .sender {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--bone-dim);
+        margin-right: 0.3rem;
+      }
+      .dm-message.own { text-align: right; color: var(--verdigris); }
+      .dm-message.own .sender { color: var(--verdigris); }
+
+      .hint {
+        margin: -0.35rem 0 0.75rem;
+        font-size: 0.72rem;
+        color: var(--bone-dim);
+        font-style: italic;
+      }
+
+      .console-row { display: flex; gap: 0.5rem; }
+
+      .contact-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .contact-chip {
+        appearance: none;
+        border: 1px solid var(--line-bright);
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--bone-dim);
+        font-family: var(--display);
+        font-size: 0.76rem;
+        padding: 0.3rem 0.6rem;
+        cursor: pointer;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+      .contact-chip:hover { border-color: var(--verdigris); color: var(--bone); }
+      .contact-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+      .contact-chip.is-active { border-color: var(--verdigris); color: var(--verdigris); background: rgba(92, 184, 159, 0.1); }
+      .contact-chip.is-add { border-style: dashed; }
+
+      .active-recipient {
+        font-size: 0.78rem;
+        color: var(--bone-dim);
+        margin-bottom: 0.6rem;
+      }
+      .active-recipient strong { color: var(--bone); font-weight: 600; }
+      .active-recipient .readout { margin-left: 0.35rem; }
+
+      .add-contact-form {
+        display: none;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .add-contact-form.is-open { display: flex; }
+      .add-contact-form input { font-family: var(--mono); font-size: 0.78rem; }
+      .add-contact-form input#new-contact-name { font-family: var(--display); flex: none; width: 140px; }
+      .add-contact-form input#new-contact-pubkey { flex: 1 1 220px; }
+
+      input[type="text"] {
+        flex: 1;
+        min-width: 0;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--line);
+        color: var(--bone);
+        padding: 0.55rem 0.65rem;
+        font-family: var(--display);
+        font-size: 0.9rem;
+      }
+      input[type="text"]::placeholder { color: var(--bone-dim); }
+      input[type="text"]:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; border-color: var(--amber); }
+
+      button[type="submit"] {
+        appearance: none;
+        background: var(--amber);
+        color: #1a1206;
+        border: none;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.78rem;
+        padding: 0 1.1rem;
+        cursor: pointer;
+        flex: none;
+        transition: filter 0.15s ease;
+      }
+      button[type="submit"]:hover { filter: brightness(1.12); }
+      button[type="submit"]:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }
+
+      @media (max-width: 480px) {
+        body { padding: 0; }
+        .shell { border-left: none; border-right: none; max-width: 100%; }
+      }
     </style>
   </head>
   <body>
-    <header>
-      <strong>PillTalk</strong>
-      <span id="pubkey-label"></span>
-      <button id="wipe-button" type="button">Delete it all</button>
-    </header>
-    <section>
-      <h2>Geohash room: <span id="geohash-label"></span> (<span id="participant-count"></span>)</h2>
-      <div id="messages"></div>
-      <form id="geohash-form">
-        <input id="geohash-input" type="text" placeholder="Message the room" required maxlength="500" />
-        <button type="submit">Send</button>
-      </form>
-    </section>
-    <section>
-      <h2>Direct message (<span id="dm-transport"></span>)</h2>
-      <input id="dm-recipient" type="text" placeholder="Recipient pubkey (hex)" />
-      <div id="dm-messages"></div>
-      <form id="dm-form">
-        <input id="dm-input" type="text" placeholder="Message" required maxlength="500" />
-        <button type="submit">Send</button>
-      </form>
-    </section>
+    <div class="shell">
+      <header class="console-head">
+        <div class="brand">
+          <span class="mark">PillTalk</span>
+          <button class="id-chip" id="pubkey-label" type="button" title="Click to copy your full ID"></button>
+        </div>
+        <button id="wipe-button" type="button">Delete it all</button>
+      </header>
+      <section class="panel">
+        <h2 class="panel-head">
+          Channel<span class="readout" id="geohash-label"></span>
+          <span class="status"><span class="signal-bars" id="channel-signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="participant-count"></span></span>
+        </h2>
+        <div id="messages" class="log"></div>
+        <p class="hint">Tap a name in the room to reply by direct message.</p>
+        <form id="geohash-form" class="console-row">
+          <input id="geohash-input" type="text" placeholder="Message the room" required maxlength="500" />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+      <section class="panel">
+        <h2 class="panel-head">
+          Direct line
+          <span class="status"><span class="signal-bars dm-signal" id="dm-signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="dm-transport"></span></span>
+        </h2>
+        <div class="contact-row" id="contact-list" role="group" aria-label="Saved contacts"></div>
+        <form class="add-contact-form" id="add-contact-form">
+          <input id="new-contact-pubkey" type="text" placeholder="Their pubkey (hex)" required />
+          <input id="new-contact-name" type="text" placeholder="Name them" required maxlength="40" />
+          <button type="submit">Save contact</button>
+        </form>
+        <p class="active-recipient" id="active-recipient" hidden>
+          Talking to <strong id="active-recipient-label"></strong><span class="readout" id="active-recipient-pubkey"></span>
+        </p>
+        <div id="dm-messages" class="log"></div>
+        <form id="dm-form" class="console-row">
+          <input id="dm-input" type="text" placeholder="Message" required maxlength="500" disabled />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
