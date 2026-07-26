@@ -6,7 +6,7 @@ import { DmManager } from './dm/dmManager';
 import type { PeerConnectionLike } from './webrtc/signaling';
 import { loadContacts, upsertContact, findContact, type Contact } from './contacts/contacts';
 import { appendGeohashMessage, appendDmMessage, renderParticipantCount, renderTransport } from './ui/render';
-import { isPushSupported, isPushEnabled, enablePush, notifyPeer } from './push/push';
+import { isPushSupported, isPushEnabled, enablePush, notifyPeer, registerServiceWorker } from './push/push';
 
 const RELAY_URLS = [
   'wss://relay.damus.io',
@@ -44,6 +44,8 @@ async function currentGeohash(): Promise<string> {
 }
 
 async function main(): Promise<void> {
+  registerServiceWorker();
+
   const identity = loadOrCreateIdentity(window.localStorage);
 
   const pubkeyLabelEl = byId<HTMLButtonElement>('pubkey-label');

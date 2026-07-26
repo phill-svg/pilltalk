@@ -21,6 +21,18 @@ export function isPushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window;
 }
 
+/**
+ * Registers the service worker unconditionally, independent of whether the
+ * user ever enables push notifications. Chrome's PWA "Install app" prompt
+ * requires a registered service worker as one of its installability
+ * criteria (alongside the manifest and HTTPS) -- without this, Android
+ * users only get a plain bookmark-style shortcut, not a real app install.
+ */
+export function registerServiceWorker(): void {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 export async function isPushEnabled(): Promise<boolean> {
   if (!isPushSupported()) return false;
   const registration = await navigator.serviceWorker.getRegistration('/');
