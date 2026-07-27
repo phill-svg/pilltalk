@@ -22,7 +22,9 @@
         --glass-border: rgba(255, 255, 255, 0.6);
         --text: #1c1c1e;
         --text-secondary: #6e6e73;
-        --accent: #007aff;
+        --accent-start: #2fbf71;
+        --accent-end: #e14b4b;
+        --accent-solid: #2fbf71;
         --self: #ff9500;
         --destructive: #ff3b30;
         --divider: rgba(60, 60, 67, 0.22);
@@ -82,9 +84,12 @@
       .brand .mark {
         font-weight: 700;
         letter-spacing: -0.01em;
-        color: var(--text);
         font-size: 1.05rem;
         white-space: nowrap;
+        background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
 
       .id-chip {
@@ -102,8 +107,8 @@
         white-space: nowrap;
         transition: background 0.15s ease, color 0.15s ease;
       }
-      .id-chip:hover { background: rgba(0, 122, 255, 0.12); color: var(--accent); }
-      .id-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .id-chip:hover { background: rgba(0, 122, 255, 0.12); color: var(--accent-solid); }
+      .id-chip:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 
       .header-actions {
         display: flex;
@@ -124,9 +129,9 @@
         flex: none;
         transition: background 0.15s ease, color 0.15s ease;
       }
-      button#notify-button:hover { background: rgba(0, 122, 255, 0.14); color: var(--accent); }
-      button#notify-button.is-on { background: rgba(0, 122, 255, 0.14); color: var(--accent); }
-      button#notify-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      button#notify-button:hover { background: rgba(0, 122, 255, 0.14); color: var(--accent-solid); }
+      button#notify-button.is-on { background: rgba(0, 122, 255, 0.14); color: var(--accent-solid); }
+      button#notify-button:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 
       button#wipe-button {
         appearance: none;
@@ -186,12 +191,12 @@
         padding: 0;
         cursor: pointer;
       }
-      .rooms-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .rooms-toggle:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
       .rooms-toggle-caret { color: var(--text-secondary); font-size: 0.7rem; }
 
       .readout {
         font-family: var(--mono);
-        color: var(--accent);
+        color: var(--accent-solid);
         background: rgba(0, 122, 255, 0.1);
         border: none;
         border-radius: var(--radius-sm);
@@ -232,10 +237,10 @@
       .signal-bars i:nth-child(3) { height: 7px; }
       .signal-bars i:nth-child(4) { height: 10px; }
 
-      #channel-signal[data-level="1"] i:nth-child(1) { background: var(--accent); }
-      #channel-signal[data-level="2"] i:nth-child(-n+2) { background: var(--accent); }
-      #channel-signal[data-level="3"] i:nth-child(-n+3) { background: var(--accent); }
-      #channel-signal[data-level="4"] i { background: var(--accent); }
+      #channel-signal[data-level="1"] i:nth-child(1) { background: var(--accent-solid); }
+      #channel-signal[data-level="2"] i:nth-child(-n+2) { background: var(--accent-solid); }
+      #channel-signal[data-level="3"] i:nth-child(-n+3) { background: var(--accent-solid); }
+      #channel-signal[data-level="4"] i { background: var(--accent-solid); }
       #channel-signal[data-level="unknown"] i { animation: blink 1.8s ease-in-out infinite; }
       #channel-signal[data-level="unknown"] i:nth-child(2) { animation-delay: 0.15s; }
       #channel-signal[data-level="unknown"] i:nth-child(3) { animation-delay: 0.3s; }
@@ -321,9 +326,9 @@
         cursor: pointer;
         transition: background 0.15s ease, color 0.15s ease;
       }
-      .contact-chip:hover { background: rgba(0, 122, 255, 0.12); color: var(--accent); }
-      .contact-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .contact-chip.is-active { background: var(--accent); color: #fff; }
+      .contact-chip:hover { background: rgba(0, 122, 255, 0.12); color: var(--accent-solid); }
+      .contact-chip:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+      .contact-chip.is-active { background: linear-gradient(90deg, var(--accent-start), var(--accent-end)); color: #fff; }
       .contact-chip.is-add { background: transparent; border: 1.5px dashed rgba(120, 120, 128, 0.4); }
 
       .active-recipient {
@@ -356,11 +361,11 @@
         font-size: 0.92rem;
       }
       input[type="text"]::placeholder { color: var(--text-secondary); }
-      input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      input[type="text"]:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 1px; }
 
       button[type="submit"] {
         appearance: none;
-        background: var(--accent);
+        background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
         color: #fff;
         border: none;
         border-radius: var(--radius-md);
@@ -372,7 +377,7 @@
         transition: filter 0.15s ease;
       }
       button[type="submit"]:hover { filter: brightness(1.08); }
-      button[type="submit"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      button[type="submit"]:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 
       button#settings-button {
         appearance: none;
@@ -387,8 +392,8 @@
         cursor: pointer;
         transition: background 0.15s ease, color 0.15s ease;
       }
-      button#settings-button:hover { background: rgba(0, 122, 255, 0.14); color: var(--accent); }
-      button#settings-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      button#settings-button:hover { background: rgba(0, 122, 255, 0.14); color: var(--accent-solid); }
+      button#settings-button:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 
       .sheet-backdrop {
         position: fixed;
@@ -434,7 +439,7 @@
         appearance: none;
         background: none;
         border: none;
-        color: var(--accent);
+        color: var(--accent-solid);
         font-weight: 600;
         font-size: 0.92rem;
         cursor: pointer;
@@ -472,7 +477,7 @@
         transition: background 0.15s ease, color 0.15s ease;
       }
       .settings-row-button:hover { background: rgba(0, 122, 255, 0.1); }
-      .settings-row-button.is-on { color: var(--accent); }
+      .settings-row-button.is-on { color: var(--accent-solid); }
       .settings-row-button.danger { color: var(--destructive); }
       .settings-row-button.danger:hover { background: rgba(255, 59, 48, 0.12); }
 
@@ -493,8 +498,8 @@
         color: var(--text);
       }
       .room-tier-row:last-child { border-bottom: none; }
-      .room-tier-row:hover { color: var(--accent); }
-      .room-tier-row.is-active { color: var(--accent); font-weight: 700; }
+      .room-tier-row:hover { color: var(--accent-solid); }
+      .room-tier-row.is-active { color: var(--accent-solid); font-weight: 700; }
       .room-tier-name { font-weight: 600; font-size: 0.92rem; }
       .room-tier-meta { font-size: 0.76rem; color: var(--text-secondary); margin-left: 0.4rem; font-weight: 400; }
       .room-tier-code { font-family: var(--mono); font-size: 0.8rem; color: var(--text-secondary); }
