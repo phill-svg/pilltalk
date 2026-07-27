@@ -3050,6 +3050,12 @@ extension BLEService: CBPeripheralManagerDelegate {
             // "decline" means simply not tracking or servicing this central
             // going forward - matching the lack of an explicit error path
             // back to the remote central seen elsewhere in this file.
+            //
+            // Note: this is NOT the only path to addSubscribedCentral(). A
+            // central can write to the characteristic without ever
+            // subscribing first (GATT doesn't require setNotifyValue before
+            // write), reaching processDecodedCentralWrite(_:centralUUID:central:)
+            // instead - that call site enforces the same cap independently.
             SecureLogger.warning("🛑 Rejecting central subscription \(centralUUID.prefix(8))… - at peripheral cap (\(TransportConfig.bleMaxPeripheralLinks))", category: .session)
             return
         }
@@ -3259,7 +3265,18 @@ extension BLEService: CBPeripheralManagerDelegate {
             SecureLogger.debug("📦 Decoded (combined) packet type: \(packet.type) from sender: \(claimedSenderID.id.prefix(8))…", category: .session)
         }
 
-        linkStateStore.addSubscribedCentral(central)
+        // A central can reach this write path without ever calling
+        // setNotifyValue(true, for:) first (GATT does not require
+        // subscribing before writing), so this call site needs its own
+        // cap guard rather than relying on the one in
+        // peripheralManager(_:central:didSubscribeTo:). Only gate the
+        // ADD to subscribedCentrals here - the packet itself still needs
+        // to be processed below regardless of whether we're at cap.
+        if readLinkState({ $0.subscribedCentralCount }) < TransportConfig.bleMaxPeripheralLinks {
+            linkStateStore.addSubscribedCentral(central)
+        } else {
+            SecureLogger.warning("🛑 Rejecting central write-path subscription \(centralUUID.prefix(8))… - at peripheral cap (\(TransportConfig.bleMaxPeripheralLinks))", category: .session)
+        }
 
         if packet.type == MessageType.announce.rawValue,
            packet.ttl == messageTTL {
