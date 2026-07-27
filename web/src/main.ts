@@ -84,26 +84,44 @@ async function main(): Promise<void> {
     });
   });
 
+  type AppSection = 'chats' | 'contacts' | 'settings';
+
+  const sectionEls: Record<AppSection, HTMLElement> = {
+    chats: byId('section-chats'),
+    contacts: byId('section-contacts'),
+    settings: byId('section-settings'),
+  };
+  const sidebarItemEls: Record<AppSection, HTMLButtonElement> = {
+    chats: byId('nav-chats'),
+    contacts: byId('nav-contacts'),
+    settings: byId('nav-settings'),
+  };
+  const sidebarEl = byId('app-sidebar');
+  const sidebarToggleEl = byId<HTMLButtonElement>('sidebar-toggle');
+
+  function showSection(section: AppSection): void {
+    for (const key of Object.keys(sectionEls) as AppSection[]) {
+      sectionEls[key].hidden = key !== section;
+      sidebarItemEls[key].classList.toggle('is-active', key === section);
+    }
+    sidebarEl.classList.remove('is-open');
+    sidebarToggleEl.setAttribute('aria-expanded', 'false');
+  }
+
+  for (const key of Object.keys(sidebarItemEls) as AppSection[]) {
+    sidebarItemEls[key].addEventListener('click', () => showSection(key));
+  }
+
+  sidebarToggleEl.addEventListener('click', () => {
+    const isOpen = sidebarEl.classList.toggle('is-open');
+    sidebarToggleEl.setAttribute('aria-expanded', String(isOpen));
+  });
+
   let nickname = loadNickname(window.localStorage);
 
-  const settingsButton = byId<HTMLButtonElement>('settings-button');
-  const settingsBackdrop = byId<HTMLDivElement>('settings-backdrop');
-  const settingsClose = byId<HTMLButtonElement>('settings-close');
   const nicknameForm = byId<HTMLFormElement>('nickname-form');
   const nicknameInput = byId<HTMLInputElement>('nickname-input');
   nicknameInput.value = nickname ?? '';
-
-  function openSettings(): void {
-    settingsBackdrop.hidden = false;
-  }
-  function closeSettings(): void {
-    settingsBackdrop.hidden = true;
-  }
-  settingsButton.addEventListener('click', openSettings);
-  settingsClose.addEventListener('click', closeSettings);
-  settingsBackdrop.addEventListener('click', (ev) => {
-    if (ev.target === settingsBackdrop) closeSettings();
-  });
 
   nicknameForm.addEventListener('submit', (ev) => {
     ev.preventDefault();
