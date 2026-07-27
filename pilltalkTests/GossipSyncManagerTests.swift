@@ -810,6 +810,21 @@ struct GossipSyncManagerTests {
         #expect(manager._messageCount(for: PeerID(hexData: senderID)) == 0)
     }
 
+    @Test
+    func currentConfig_exposesConfiguredValues() {
+        var config = GossipSyncManager.Config()
+        config.gcsMaxBytes = 512
+        config.gcsTargetFpr = 0.02
+        let manager = GossipSyncManager(
+            myPeerID: myPeerID,
+            config: config,
+            requestSyncManager: RequestSyncManager()
+        )
+
+        #expect(manager.currentConfig.gcsMaxBytes == 512)
+        #expect(manager.currentConfig.gcsTargetFpr == 0.02)
+    }
+
 }
 
 private final class RecordingDelegate: GossipSyncManager.Delegate {

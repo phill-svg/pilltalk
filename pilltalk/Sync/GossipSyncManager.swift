@@ -97,6 +97,11 @@ final class GossipSyncManager {
     private let archive: GossipMessageArchive?
     weak var delegate: Delegate?
 
+    /// Read-only view of the sync configuration, for the debug pane.
+    var currentConfig: Config {
+        config
+    }
+
     /// Source of raw signed board packets (posts + tombstones). The board
     /// store is the single owner of board retention (expiry, tombstones,
     /// caps, persistence), so sync rounds query it instead of keeping a
