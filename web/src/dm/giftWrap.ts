@@ -1,6 +1,6 @@
 // web/src/dm/giftWrap.ts
 import { getPublicKey, signEvent, verifyEvent, type NostrEvent, type UnsignedEvent } from '../nostr/event';
-import { nip44Encrypt, nip44Decrypt } from '../crypto/nip44';
+import { pilltalkV2Encrypt, pilltalkV2Decrypt } from '../crypto/pilltalkV2';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
 
@@ -33,7 +33,7 @@ export function createGiftWrap(
   now: number = Math.floor(Date.now() / 1000),
 ): NostrEvent {
   const senderPubkey = getPublicKey(senderPrivateKeyHex);
-  const sealContent = nip44Encrypt(JSON.stringify(rumor), senderPrivateKeyHex, recipientPublicKeyHex);
+  const sealContent = pilltalkV2Encrypt(JSON.stringify(rumor), senderPrivateKeyHex, recipientPublicKeyHex);
   const unsignedSeal: UnsignedEvent = {
     pubkey: senderPubkey,
     created_at: randomPastTimestamp(now),
@@ -44,7 +44,7 @@ export function createGiftWrap(
   const seal = signEvent(unsignedSeal, senderPrivateKeyHex);
 
   const oneTimePrivateKey = bytesToHex(secp256k1.utils.randomPrivateKey());
-  const wrapContent = nip44Encrypt(JSON.stringify(seal), oneTimePrivateKey, recipientPublicKeyHex);
+  const wrapContent = pilltalkV2Encrypt(JSON.stringify(seal), oneTimePrivateKey, recipientPublicKeyHex);
   const unsignedWrap: UnsignedEvent = {
     pubkey: getPublicKey(oneTimePrivateKey),
     created_at: randomPastTimestamp(now),
@@ -60,7 +60,7 @@ export function openGiftWrap(giftWrap: NostrEvent, receiverPrivateKeyHex: string
     throw new Error('Invalid gift wrap signature');
   }
 
-  const sealJson = nip44Decrypt(giftWrap.content, receiverPrivateKeyHex, giftWrap.pubkey);
+  const sealJson = pilltalkV2Decrypt(giftWrap.content, receiverPrivateKeyHex, giftWrap.pubkey);
   const seal = JSON.parse(sealJson) as NostrEvent;
 
   if (!verifyEvent(seal)) {
@@ -70,7 +70,7 @@ export function openGiftWrap(giftWrap: NostrEvent, receiverPrivateKeyHex: string
     throw new Error('Unexpected seal kind');
   }
 
-  const rumorJson = nip44Decrypt(seal.content, receiverPrivateKeyHex, seal.pubkey);
+  const rumorJson = pilltalkV2Decrypt(seal.content, receiverPrivateKeyHex, seal.pubkey);
   const rumor = JSON.parse(rumorJson) as Rumor;
 
   // The seal's pubkey is the cryptographically authenticated sender identity
