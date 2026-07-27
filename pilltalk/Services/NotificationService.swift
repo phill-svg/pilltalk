@@ -7,6 +7,7 @@
 //
 
 import BitFoundation
+import BitLogger
 import Foundation
 import UserNotifications
 #if os(iOS)
@@ -54,7 +55,14 @@ private final class NotificationCenterRequestDelivererAdapter: NotificationReque
 
     func add(_ request: UNNotificationRequest) {
         Task {
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+            } catch {
+                SecureLogger.error(
+                    "Notification delivery failed for \(request.identifier): \(error.localizedDescription)",
+                    category: .session
+                )
+            }
         }
     }
 }
@@ -141,11 +149,17 @@ final class NotificationService {
     func requestAuthorization() {
         guard !isRunningTests else { return }
         registerCategories()
-        authorizer.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            if granted {
-                // Permission granted
+        authorizer.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error {
+                SecureLogger.error(
+                    "Notification authorization request errored: \(error.localizedDescription)",
+                    category: .session
+                )
             } else {
-                // Permission denied
+                SecureLogger.info(
+                    "Notification authorization \(granted ? "granted" : "denied")",
+                    category: .session
+                )
             }
         }
     }
@@ -193,6 +207,7 @@ final class NotificationService {
             trigger: nil // Deliver immediately
         )
 
+        SecureLogger.debug("Requesting local notification delivery: \(identifier)", category: .session)
         requestDeliverer.add(request)
     }
     

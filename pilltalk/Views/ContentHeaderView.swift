@@ -46,12 +46,20 @@ struct ContentHeaderView: View {
                 // (priority 0) and the logo only as a last resort; the icon
                 // cluster at priority 3 never gives up width.
                 .layoutPriority(2)
-                .onTapGesture(count: 3) {
-                    appChromeModel.panicClearAllData()
-                }
-                .onTapGesture(count: 1) {
-                    appChromeModel.presentAppInfo()
-                }
+                // A single `.onTapGesture(count:)` per count doesn't compose:
+                // SwiftUI has no built-in "wait to see if this becomes a
+                // triple-tap" arbitration between separately-attached
+                // recognizers, so the count:1 gesture ate every tap before
+                // the count:3 gesture could ever win. `exclusively(before:)`
+                // makes the triple-tap try first and only falls through to
+                // the single-tap once it fails to complete.
+                .gesture(
+                    TapGesture(count: 3)
+                        .onEnded { appChromeModel.panicClearAllData() }
+                        .exclusively(before: TapGesture(count: 1)
+                            .onEnded { appChromeModel.presentAppInfo() }
+                        )
+                )
                 // This is the only entry point to App Info, but it reads as
                 // static text; surface the tap. (The triple-tap panic wipe
                 // stays undiscoverable on purpose — it's destructive.)
