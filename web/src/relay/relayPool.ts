@@ -145,4 +145,18 @@ export class RelayPool implements RelayPoolLike {
   totalCount(): number {
     return this.sockets.size;
   }
+
+  /** Closes every connection and drops all subscriptions. For pools created
+   * per-room (e.g. geo-selected geohash relays) that get replaced whenever
+   * the room changes -- without this, switching rooms repeatedly would leak
+   * open WebSocket connections indefinitely. */
+  disconnect(): void {
+    this.subscriptions.clear();
+    for (const [url, ws] of this.sockets) {
+      ws.onclose = null; // don't trigger scheduleReconnect on an intentional close
+      ws.onerror = null;
+      ws.close();
+      this.sockets.delete(url);
+    }
+  }
 }

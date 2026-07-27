@@ -43,6 +43,32 @@ export function geohashEncode(latitude: number, longitude: number, precision: nu
   return geohash;
 }
 
+export function geohashDecodeCenter(geohash: string): { lat: number; lon: number } {
+  const latRange: [number, number] = [-90, 90];
+  const lonRange: [number, number] = [-180, 180];
+  let isEven = true;
+
+  for (const char of geohash.toLowerCase()) {
+    const idx = BASE32.indexOf(char);
+    if (idx === -1) continue;
+    for (let bit = 4; bit >= 0; bit--) {
+      const bitValue = (idx >> bit) & 1;
+      if (isEven) {
+        const mid = (lonRange[0] + lonRange[1]) / 2;
+        if (bitValue === 1) lonRange[0] = mid;
+        else lonRange[1] = mid;
+      } else {
+        const mid = (latRange[0] + latRange[1]) / 2;
+        if (bitValue === 1) latRange[0] = mid;
+        else latRange[1] = mid;
+      }
+      isEven = !isEven;
+    }
+  }
+
+  return { lat: (latRange[0] + latRange[1]) / 2, lon: (lonRange[0] + lonRange[1]) / 2 };
+}
+
 export const GEOHASH_PRECISION = {
   region: 2,
   province: 4,

@@ -2,7 +2,8 @@ import { loadOrCreateIdentity, wipeIdentity } from './identity/identity';
 import { loadNickname, saveNickname } from './identity/nickname';
 import { RelayPool, type MinimalWebSocket } from './relay/relayPool';
 import { GeohashChannel } from './channel/geohashChannel';
-import { GEOHASH_PRECISION, geohashEncode } from './geohash/geohash';
+import { GEOHASH_PRECISION, geohashEncode, geohashDecodeCenter } from './geohash/geohash';
+import { closestRelays } from './relay/geoRelayDirectory';
 import { DmManager } from './dm/dmManager';
 import type { PeerConnectionLike } from './webrtc/signaling';
 import { loadContacts, upsertContact, findContact, type Contact } from './contacts/contacts';
@@ -141,7 +142,11 @@ async function main(): Promise<void> {
   const roomTierList = byId('room-tier-list');
 
   let channel: GeohashChannel;
+  let geoPool: RelayPool | null = null;
   let tiers: RoomTier[] = [];
+
+  // Matches the native apps' GeoRelayDirectory count (TransportConfig.nostrGeoRelayCount).
+  const GEO_RELAY_COUNT = 5;
 
   function updateChannelSignal(): void {
     const count = channel.getParticipantCount();
@@ -166,11 +171,23 @@ async function main(): Promise<void> {
 
   function joinChannel(newGeohash: string): void {
     channel?.leave();
+    geoPool?.disconnect();
     messagesEl.innerHTML = '';
     geohashLabelInput.value = newGeohash;
     geohashLabelDisplay.textContent = `#${newGeohash}`;
     renderTierList(newGeohash);
-    channel = new GeohashChannel(pool, identity.privateKeyHex, newGeohash, (message) => {
+
+    // The native apps subscribe to and publish geohash chat/presence on the
+    // relays geographically closest to the room, not a fixed global list --
+    // matching that here is required for interop (see geoRelayDirectory.ts).
+    const { lat, lon } = geohashDecodeCenter(newGeohash);
+    const relaysForRoom = closestRelays(lat, lon, GEO_RELAY_COUNT);
+    geoPool = new RelayPool(
+      relaysForRoom.length > 0 ? relaysForRoom : RELAY_URLS,
+      (url) => new WebSocket(url) as unknown as MinimalWebSocket,
+    );
+
+    channel = new GeohashChannel(geoPool, identity.privateKeyHex, newGeohash, (message) => {
       appendGeohashMessage(messagesEl, message, channel.myPubkey);
       updateChannelSignal();
     });
