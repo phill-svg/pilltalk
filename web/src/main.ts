@@ -8,6 +8,7 @@ import { DmManager } from './dm/dmManager';
 import type { PeerConnectionLike } from './webrtc/signaling';
 import { loadContacts, upsertContact, findContact, type Contact } from './contacts/contacts';
 import { appendGeohashMessage, appendDmMessage, renderParticipantCount, renderTransport } from './ui/render';
+import { renderContactsList } from './ui/contactsList';
 import { isPushSupported, isPushEnabled, enablePush, notifyPeer, registerServiceWorker } from './push/push';
 
 const RELAY_URLS = [
@@ -262,6 +263,7 @@ async function main(): Promise<void> {
   const dmMessagesEl = byId('dm-messages');
   const dmTransportEl = byId('dm-transport');
   const dmSignalEl = byId('dm-signal');
+  const contactsListContainerEl = byId('contacts-list-container');
 
   function contactLabel(pubkey: string): string {
     return findContact(contacts, pubkey)?.label ?? shortPubkey(pubkey);
@@ -298,6 +300,8 @@ async function main(): Promise<void> {
       if (addContactForm.classList.contains('is-open')) newContactPubkeyInput.focus();
     });
     contactListEl.append(addChip);
+
+    renderContactsList(contactsListContainerEl, contacts, activeRecipient, selectRecipient);
   }
 
   function selectRecipient(pubkey: string): void {
