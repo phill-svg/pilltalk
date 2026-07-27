@@ -5,7 +5,6 @@ import SwiftUI
 /// toggles, panic wipe); Info keeps the about content (how-to, features,
 /// privacy, symbols legend).
 struct AppInfoView: View {
-    @Environment(\.dismiss) var dismiss
     @ThemedPalette private var palette
     @AppStorage(AppTheme.storageKey) private var appThemeRawValue = AppTheme.matrix.rawValue
     @EnvironmentObject private var locationChannelsModel: LocationChannelsModel
@@ -217,18 +216,6 @@ struct AppInfoView: View {
     var body: some View {
         #if os(macOS)
         VStack(spacing: 0) {
-            // Custom header for macOS
-            HStack {
-                Spacer()
-                Button("app_info.done") {
-                    dismiss()
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(textColor)
-                .padding()
-            }
-            .themedSurface(opacity: 0.95)
-
             VStack(spacing: 0) {
                 panePicker
 
@@ -255,12 +242,6 @@ struct AppInfoView: View {
             }
             .themedSheetBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    SheetCloseButton { dismiss() }
-                        .foregroundColor(textColor)
-                }
-            }
         }
         .sheet(isPresented: $showTopology) {
             if let topologyProvider {
