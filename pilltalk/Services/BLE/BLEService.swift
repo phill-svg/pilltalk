@@ -241,6 +241,15 @@ final class BLEService: NSObject {
     let receivedTrafficCounter = PacketTrafficCounter()
     let relayedTrafficCounter = PacketTrafficCounter()
 
+    // MARK: - Debug Log Store
+    // Always-on event log for the debug pane (Task 10 reads `entries`). Held as
+    // a plain stored property from this nonisolated class: only the type is
+    // referenced here, and every `.log(...)` call hops to the main actor via
+    // `Task { @MainActor [weak self] in ... }` (the same hop `notifyUI` and the
+    // fragment-pipeline fence already use in this file). Not `#if DEBUG` gated —
+    // unlike SecureLogger, this must work in the shipped Release build.
+    let debugLogStore = DebugLogStore()
+
     // MARK: - Gossip Sync
     private var gossipSyncManager: GossipSyncManager?
     private let requestSyncManager = RequestSyncManager()
@@ -2319,6 +2328,13 @@ extension BLEService: CBCentralManagerDelegate {
         )
         if isConnectable {
             recentPeripheralCache.record(peripheral, peripheralID: peripheralID, at: candidate.discoveredAt)
+            // Capture only value types (name/RSSI) so the main-actor hop never
+            // closes over the candidate's non-Sendable CBPeripheral.
+            let scanName = candidate.name
+            let scanRSSI = candidate.rssi
+            Task { @MainActor [weak self] in
+                self?.debugLogStore.log(category: "scan", message: "discovered: \(scanName) (\(scanRSSI) dBm)")
+            }
         }
         let existingState = linkStateStore.state(forPeripheralID: peripheralID).map(BLEExistingConnectionState.init)
 
@@ -2425,6 +2441,10 @@ extension BLEService: CBCentralManagerDelegate {
                 peerRegistry.markDisconnected(peerID)
             }
             refreshLocalTopology()
+            let disconnectedID = peerID.id
+            Task { @MainActor [weak self] in
+                self?.debugLogStore.log(category: "peer", message: "disconnected: \(disconnectedID)")
+            }
         }
 
 
@@ -3177,9 +3197,14 @@ extension BLEService: CBPeripheralManagerDelegate {
             collectionsQueue.sync(flags: .barrier) {
                 peerRegistry.markDisconnected(peerID)
             }
-            
+
             refreshLocalTopology()
-            
+
+            let disconnectedID = peerID.id
+            Task { @MainActor [weak self] in
+                self?.debugLogStore.log(category: "peer", message: "disconnected: \(disconnectedID)")
+            }
+
             // Update UI immediately
             notifyUI { [weak self] in
                 guard let self = self else { return }
@@ -5310,6 +5335,11 @@ extension BLEService {
         )
         guard decision.shouldRelay else { return }
 
+        let relayTTL = decision.newTTL
+        Task { @MainActor [weak self] in
+            self?.debugLogStore.log(category: "relay", message: "relaying \(messageID.prefix(8))… ttl=\(relayTTL)")
+        }
+
         let work = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             self.collectionsQueue.async(flags: .barrier) { [weak self] in
@@ -5569,6 +5599,10 @@ extension BLEService {
         guard promoted else { return }
         refreshLocalTopology()
         publishFullPeerData()
+        let connectedID = peerID.id
+        Task { @MainActor [weak self] in
+            self?.debugLogStore.log(category: "peer", message: "connected: \(connectedID)")
+        }
         notifyUI { [weak self] in
             guard let self else { return }
             let currentPeerIDs = self.collectionsQueue.sync { self.peerRegistry.peerIDs }
@@ -5637,7 +5671,7 @@ extension BLEService {
             },
             upsertVerifiedAnnounce: { [weak self] peerID, announcement, isConnected, now in
                 // Called from inside withRegistryBarrier; access registry directly.
-                self?.peerRegistry.upsertVerifiedAnnounce(
+                let update = self?.peerRegistry.upsertVerifiedAnnounce(
                     peerID: peerID,
                     nickname: announcement.nickname,
                     noisePublicKey: announcement.noisePublicKey,
@@ -5647,6 +5681,17 @@ extension BLEService {
                     capabilities: announcement.capabilities ?? [],
                     bridgeGeohash: announcement.bridgeGeohash
                 ) ?? BLEPeerAnnounceUpdate(isNewPeer: false, wasDisconnected: false, previousNickname: nil)
+                // A verified announce refreshes on every keepalive; only a
+                // genuinely new or rebound peer is a real "connected" event
+                // (mirrors the isNewPeer/wasDisconnected signal the announce
+                // policy uses to decide shouldNotifyPeerConnected).
+                if update.isNewPeer || update.wasDisconnected {
+                    let nickname = announcement.nickname
+                    Task { @MainActor [weak self] in
+                        self?.debugLogStore.log(category: "peer", message: "connected: \(nickname)")
+                    }
+                }
+                return update
             },
             shouldEmitReconnectLog: { [weak self] peerID, now in
                 // Called from inside withRegistryBarrier; access debouncer directly.
