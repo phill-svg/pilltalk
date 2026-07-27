@@ -75,7 +75,10 @@ struct NearbyView: View {
             .navigationTitle(Text(verbatim: "nearby"))
             .toolbar {
                 if case .mesh = locationChannelsModel.selectedChannel {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    // .automatic (not .navigationBarTrailing, which is
+                    // iOS/UIKit-only and fails to compile on macOS) —
+                    // this view is shared across both platforms.
+                    ToolbarItem(placement: .automatic) {
                         Button(action: { showVerifySheet = true }) {
                             Image(systemName: "qrcode")
                                 .font(.pilltalkSystem(size: 14))
