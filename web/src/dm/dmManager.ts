@@ -3,6 +3,7 @@ import type { RelayPoolLike } from '../relay/relayPool';
 import type { NostrEvent } from '../nostr/event';
 import { createGiftWrap, openGiftWrap, KIND_GIFT_WRAP, KIND_DM_RUMOR, type Rumor } from './giftWrap';
 import { WebRtcSignaling, type PeerConnectionFactory, type DataChannelLike, type SignalPayload } from '../webrtc/signaling';
+import { encodePilltalk1Message, decodePilltalk1 } from './pilltalkPacket';
 
 export interface ChatMessage {
   fromPubkey: string;
@@ -104,7 +105,22 @@ export class DmManager {
       return;
     }
     if (rumor.kind !== KIND_DM_RUMOR) return;
-    this.onMessage(rumor.pubkey, { fromPubkey: rumor.pubkey, content: rumor.content, createdAt: rumor.created_at });
+    this.resolveIncomingContent(rumor.content)
+      .then((content) => {
+        if (content === null) return;
+        this.onMessage(rumor.pubkey, { fromPubkey: rumor.pubkey, content, createdAt: rumor.created_at });
+      })
+      .catch(() => {});
+  }
+
+  // The iOS/Android apps wrap DM content in a "pilltalk1:" binary packet
+  // (see pilltalkPacket.ts); older/web-only messages are plain text. Try to
+  // decode as pilltalk1 first, falling back to the raw string so nothing
+  // sent before this fix (or by a future plain-text-only client) breaks.
+  private async resolveIncomingContent(raw: string): Promise<string | null> {
+    const decoded = await decodePilltalk1(raw);
+    if (decoded === null) return raw;
+    return decoded.kind === 'message' ? decoded.content : null;
   }
 
   sendMessage(recipientPubkey: string, content: string): void {
@@ -113,7 +129,7 @@ export class DmManager {
       channel.send(JSON.stringify({ content, createdAt: Math.floor(Date.now() / 1000) }));
       return;
     }
-    this.sendRumor(recipientPubkey, content, []);
+    this.sendRumor(recipientPubkey, encodePilltalk1Message(content, crypto.randomUUID()), []);
     const lastAttempt = this.lastDirectConnectAttempt.get(recipientPubkey);
     const cooldownElapsed = lastAttempt === undefined || this.now() - lastAttempt > WEBRTC_RETRY_COOLDOWN_MS;
     if (cooldownElapsed && !this.pendingDirectConnect.has(recipientPubkey)) {

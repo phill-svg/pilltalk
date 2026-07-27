@@ -82,7 +82,7 @@ class FailingPeerConnection extends FakePeerConnection {
 }
 
 describe('DmManager', () => {
-  it('delivers a message via relay when no direct channel exists', () => {
+  it('delivers a message via relay when no direct channel exists', async () => {
     const pool = createInMemoryRelayPool();
     const alicePriv = randomKeyHex();
     const alicePub = getPublicKey(alicePriv);
@@ -97,7 +97,12 @@ describe('DmManager', () => {
 
     alice.sendMessage(bobPub, 'hi bob');
 
-    expect(bobOnMessage).toHaveBeenCalledWith(alicePub, expect.objectContaining({ content: 'hi bob' }));
+    // Incoming DM content is decoded asynchronously (it's checked against
+    // the iOS/Android "pilltalk1:" packet format before falling back to
+    // plain text), so the receiving side's callback fires on a microtask.
+    await vi.waitFor(() => {
+      expect(bobOnMessage).toHaveBeenCalledWith(alicePub, expect.objectContaining({ content: 'hi bob' }));
+    });
     expect(alice.getTransport(bobPub)).toBe('relay');
   });
 
