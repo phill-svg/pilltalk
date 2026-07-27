@@ -3043,6 +3043,16 @@ extension BLEService: CBPeripheralManagerDelegate {
         guard !isPanicSuspended else { return }
         let centralUUID = central.identifier.uuidString
         SecureLogger.debug("📥 Central subscribed: \(centralUUID.prefix(8))…", category: .session)
+        guard readLinkState({ $0.subscribedCentralCount }) < TransportConfig.bleMaxPeripheralLinks else {
+            // At cap - decline the new subscription silently. CoreBluetooth
+            // gives peripherals no API to reject a GATT subscription (it has
+            // already completed by the time this delegate callback fires), so
+            // "decline" means simply not tracking or servicing this central
+            // going forward - matching the lack of an explicit error path
+            // back to the remote central seen elsewhere in this file.
+            SecureLogger.warning("🛑 Rejecting central subscription \(centralUUID.prefix(8))… - at peripheral cap (\(TransportConfig.bleMaxPeripheralLinks))", category: .session)
+            return
+        }
         linkStateStore.addSubscribedCentral(central)
 
         // BCH-01-004: Rate-limit subscription-triggered announces to prevent enumeration attacks

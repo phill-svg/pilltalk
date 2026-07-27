@@ -58,6 +58,10 @@ enum TransportConfig {
     // BLE duty/announce/connect
     static let bleConnectRateLimitInterval: TimeInterval = 0.5
     static let bleMaxCentralLinks: Int = 6
+    /// Cap on incoming (peripheral-role) subscriptions we accept — unlike
+    /// Android, this had no cap at all before the debug pane needed one to
+    /// display as a meaningful "max connections" fact rather than "unbounded".
+    static let bleMaxPeripheralLinks: Int = 6
     static let bleDutyOnDuration: TimeInterval = 5.0
     static let bleDutyOffDuration: TimeInterval = 10.0
     static let bleAnnounceMinInterval: TimeInterval = 1.0
