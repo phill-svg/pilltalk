@@ -60,6 +60,26 @@ final class BLEConnectionScheduler<Peripheral> {
         candidates.count
     }
 
+    struct DebugScanResultRow: Identifiable, Equatable {
+        let id: String
+        let nickname: String
+        let rssi: Int
+        let discoveredAt: Date
+    }
+
+    /// Read-only view of currently-discovered-but-not-connected candidates,
+    /// for the debug pane's BLE scan results section.
+    func debugScanResultRows() -> [DebugScanResultRow] {
+        candidates.map { candidate in
+            DebugScanResultRow(
+                id: candidate.peripheralID,
+                nickname: candidate.name,
+                rssi: candidate.rssi,
+                discoveredAt: candidate.discoveredAt
+            )
+        }
+    }
+
     init(
         maxCentralLinks: Int = TransportConfig.bleMaxCentralLinks,
         connectRateLimitInterval: TimeInterval = TransportConfig.bleConnectRateLimitInterval,

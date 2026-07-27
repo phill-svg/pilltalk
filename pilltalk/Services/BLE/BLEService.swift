@@ -685,6 +685,23 @@ final class BLEService: NSObject {
         }
     }
 
+    /// Read-only view of currently-discovered-but-not-connected BLE
+    /// candidates, for the debug pane's scan results section (Task 10).
+    ///
+    /// `connectionScheduler` is bleQueue-confined (mutated from
+    /// `didDiscover`/`nextCandidate`/etc., all of which run on `bleQueue`),
+    /// so this follows the same already-on-queue guard as `readLinkState`
+    /// above: call directly if we're already on `bleQueue`, otherwise hop
+    /// over via `bleQueue.sync` — a blind `bleQueue.sync` here would deadlock
+    /// if this is ever invoked from a bleQueue-confined call path.
+    func debugScanResultRows() -> [BLEConnectionScheduler<CBPeripheral>.DebugScanResultRow] {
+        if DispatchQueue.getSpecific(key: bleQueueKey) != nil {
+            return connectionScheduler.debugScanResultRows()
+        } else {
+            return bleQueue.sync { connectionScheduler.debugScanResultRows() }
+        }
+    }
+
     /// Immutable value-type snapshot of the sent/received/relayed traffic
     /// counters across all four windows, read by the debug pane (Task 10).
     struct DebugTrafficSnapshot {

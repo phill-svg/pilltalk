@@ -241,6 +241,27 @@ struct BLEConnectionSchedulerTests {
 
         #expect(threshold == TransportConfig.bleRSSIConnectedThreshold)
     }
+
+    @Test
+    func debugScanResultRows_reflectsCurrentCandidates() {
+        // Uses enqueue() directly (as several tests above already do) rather
+        // than handleDiscovery(), which is orthogonal here: with rssi -60
+        // and connectedOrConnectingCount 0 (both comfortably clear of the
+        // dynamic RSSI threshold and maxCentralLinks), handleDiscovery would
+        // return .connectNow rather than queuing, and this candidate would
+        // never land in `candidates` at all.
+        let scheduler = BLEConnectionScheduler<String>(dynamicRSSIThreshold: -80)
+        let now = Date()
+        let candidate = makeCandidate(id: "p1", rssi: -60, now: now)
+        scheduler.enqueue(candidate)
+
+        let rows = scheduler.debugScanResultRows()
+        #expect(rows.count == 1)
+        #expect(rows[0].id == "p1")
+        #expect(rows[0].nickname == "p1")
+        #expect(rows[0].rssi == -60)
+        #expect(rows[0].discoveredAt == now)
+    }
 }
 
 private func makeCandidate(id: String, rssi: Int, now: Date) -> BLEConnectionCandidate<String> {
