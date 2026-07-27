@@ -1,4 +1,5 @@
 import { loadOrCreateIdentity, wipeIdentity } from './identity/identity';
+import { loadNickname, saveNickname } from './identity/nickname';
 import { RelayPool, type MinimalWebSocket } from './relay/relayPool';
 import { GeohashChannel } from './channel/geohashChannel';
 import { GEOHASH_PRECISION, geohashEncode } from './geohash/geohash';
@@ -32,15 +33,38 @@ function isValidGeohash(value: string): boolean {
   return GEOHASH_PATTERN.test(value);
 }
 
-async function currentGeohash(): Promise<string> {
-  if (!navigator.geolocation) return DEFAULT_GEOHASH;
+async function currentPosition(): Promise<GeolocationCoordinates | null> {
+  if (!navigator.geolocation) return null;
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(geohashEncode(pos.coords.latitude, pos.coords.longitude, GEOHASH_PRECISION.neighborhood)),
-      () => resolve(DEFAULT_GEOHASH),
+      (pos) => resolve(pos.coords),
+      () => resolve(null),
       { timeout: 5000 },
     );
   });
+}
+
+interface RoomTier {
+  key: keyof typeof GEOHASH_PRECISION;
+  label: string;
+  geohash: string;
+}
+
+// Finest-to-broadest, matching the iOS/Android location channels list order.
+const TIER_ORDER: Array<{ key: keyof typeof GEOHASH_PRECISION; label: string }> = [
+  { key: 'block', label: 'Block' },
+  { key: 'neighborhood', label: 'Neighborhood' },
+  { key: 'city', label: 'City' },
+  { key: 'province', label: 'Province' },
+  { key: 'region', label: 'Region' },
+];
+
+function computeTiers(coords: GeolocationCoordinates): RoomTier[] {
+  return TIER_ORDER.map(({ key, label }) => ({
+    key,
+    label,
+    geohash: geohashEncode(coords.latitude, coords.longitude, GEOHASH_PRECISION[key]),
+  }));
 }
 
 async function main(): Promise<void> {
@@ -57,6 +81,33 @@ async function main(): Promise<void> {
         pubkeyLabelEl.textContent = identity.publicKeyHex.slice(0, 12);
       }, 1200);
     });
+  });
+
+  let nickname = loadNickname(window.localStorage);
+
+  const settingsButton = byId<HTMLButtonElement>('settings-button');
+  const settingsBackdrop = byId<HTMLDivElement>('settings-backdrop');
+  const settingsClose = byId<HTMLButtonElement>('settings-close');
+  const nicknameForm = byId<HTMLFormElement>('nickname-form');
+  const nicknameInput = byId<HTMLInputElement>('nickname-input');
+  nicknameInput.value = nickname ?? '';
+
+  function openSettings(): void {
+    settingsBackdrop.hidden = false;
+  }
+  function closeSettings(): void {
+    settingsBackdrop.hidden = true;
+  }
+  settingsButton.addEventListener('click', openSettings);
+  settingsClose.addEventListener('click', closeSettings);
+  settingsBackdrop.addEventListener('click', (ev) => {
+    if (ev.target === settingsBackdrop) closeSettings();
+  });
+
+  nicknameForm.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    nickname = saveNickname(window.localStorage, nicknameInput.value);
+    nicknameInput.value = nickname ?? '';
   });
 
   const notifyButton = byId<HTMLButtonElement>('notify-button');
@@ -83,8 +134,14 @@ async function main(): Promise<void> {
   const participantCountEl = byId('participant-count');
   const channelSignalEl = byId('channel-signal');
   const geohashLabelInput = byId<HTMLInputElement>('geohash-label');
+  const geohashLabelDisplay = byId('geohash-label-display');
+  const roomPickerButton = byId<HTMLButtonElement>('room-picker-button');
+  const roomPickerBackdrop = byId<HTMLDivElement>('room-picker-backdrop');
+  const roomPickerClose = byId<HTMLButtonElement>('room-picker-close');
+  const roomTierList = byId('room-tier-list');
 
   let channel: GeohashChannel;
+  let tiers: RoomTier[] = [];
 
   function updateChannelSignal(): void {
     const count = channel.getParticipantCount();
@@ -92,25 +149,54 @@ async function main(): Promise<void> {
     channelSignalEl.dataset.level = count.exact ? String(Math.min(count.count, 4)) : 'unknown';
   }
 
+  function renderTierList(activeGeohash: string): void {
+    roomTierList.innerHTML = '';
+    for (const tier of tiers) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = tier.geohash === activeGeohash ? 'room-tier-row is-active' : 'room-tier-row';
+      row.innerHTML = `<span class="room-tier-name">${tier.label}</span><span class="room-tier-code">#${tier.geohash}</span>`;
+      row.addEventListener('click', () => {
+        joinChannel(tier.geohash);
+        roomPickerBackdrop.hidden = true;
+      });
+      roomTierList.append(row);
+    }
+  }
+
   function joinChannel(newGeohash: string): void {
     channel?.leave();
     messagesEl.innerHTML = '';
     geohashLabelInput.value = newGeohash;
+    geohashLabelDisplay.textContent = `#${newGeohash}`;
+    renderTierList(newGeohash);
     channel = new GeohashChannel(pool, identity.privateKeyHex, newGeohash, (message) => {
-      appendGeohashMessage(messagesEl, message);
+      appendGeohashMessage(messagesEl, message, channel.myPubkey);
       updateChannelSignal();
     });
     channel.join();
     updateChannelSignal();
   }
 
-  joinChannel(await currentGeohash());
+  const position = await currentPosition();
+  tiers = position ? computeTiers(position) : [];
+  joinChannel(tiers.find((t) => t.key === 'neighborhood')?.geohash ?? DEFAULT_GEOHASH);
+
+  roomPickerButton.addEventListener('click', () => {
+    roomPickerBackdrop.hidden = false;
+  });
+  roomPickerClose.addEventListener('click', () => {
+    roomPickerBackdrop.hidden = true;
+  });
+  roomPickerBackdrop.addEventListener('click', (ev) => {
+    if (ev.target === roomPickerBackdrop) roomPickerBackdrop.hidden = true;
+  });
 
   byId<HTMLFormElement>('geohash-form').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const input = byId<HTMLInputElement>('geohash-input');
     if (!input.value.trim()) return;
-    channel.sendMessage(input.value, identity.publicKeyHex.slice(0, 8));
+    channel.sendMessage(input.value, nickname ?? identity.publicKeyHex.slice(0, 8));
     input.value = '';
   });
 
@@ -123,6 +209,7 @@ async function main(): Promise<void> {
       return;
     }
     joinChannel(value);
+    roomPickerBackdrop.hidden = true;
   });
 
   // --- Contacts + direct messages ---

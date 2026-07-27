@@ -43,6 +43,10 @@ export class GeohashChannel {
     this.ephemeralPublicKey = getPublicKey(this.ephemeralPrivateKey);
   }
 
+  get myPubkey(): string {
+    return this.ephemeralPublicKey;
+  }
+
   join(): void {
     this.unsubscribe = this.pool.subscribe(
       { kinds: [KIND_GEOHASH_CHAT, KIND_GEOHASH_PRESENCE], '#g': [this.geohash] },
