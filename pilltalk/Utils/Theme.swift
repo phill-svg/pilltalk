@@ -80,6 +80,16 @@ struct ThemePalette {
     let alertRed: Color
     /// Hairline separators.
     let divider: Color
+    /// Brand accent gradient (green → red) for the logo mark, active
+    /// sidebar item, avatars, and primary buttons. Identical across
+    /// themes and color schemes — only background/surface/text tokens
+    /// vary by theme.
+    let accentGradientColors: [Color]
+
+    static let defaultAccentGradientColors: [Color] = [
+        Color(red: 0.1843, green: 0.7490, blue: 0.4431), // #2FBF71
+        Color(red: 0.8824, green: 0.2941, blue: 0.2941)  // #E14B4B
+    ]
 
     static func matrix(_ colorScheme: ColorScheme) -> ThemePalette {
         let isDark = colorScheme == .dark
@@ -92,7 +102,8 @@ struct ThemePalette {
             locationAccent: green,
             accentBlue: Color(red: 0.0, green: 0.478, blue: 1.0),
             alertRed: Color(red: 0.75, green: 0.1, blue: 0.1),
-            divider: isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.08)
+            divider: isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.08),
+            accentGradientColors: defaultAccentGradientColors
         )
     }
 
@@ -105,7 +116,8 @@ struct ThemePalette {
             locationAccent: .green,
             accentBlue: .blue,
             alertRed: .red,
-            divider: separator
+            divider: separator,
+            accentGradientColors: defaultAccentGradientColors
         )
     }
 
