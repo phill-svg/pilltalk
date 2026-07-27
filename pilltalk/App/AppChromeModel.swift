@@ -103,6 +103,45 @@ final class AppChromeModel: ObservableObject {
         return MeshTopologyDisplayModel(nodes: nodes, edges: edges)
     }
 
+    // MARK: - Debug pane data (Task 9)
+    // Mirrors `meshTopologyDisplayModel()`: AppChromeModel wraps the private
+    // `chatViewModel` + its `BLEService` rather than exposing them. The debug
+    // accessors live only on `BLEService` (not the `Transport` protocol —
+    // avoiding protocol churn for other conformers), so this reaches them via
+    // an `as? BLEService` cast confined to these debug-only accessors. Every
+    // method here is `@MainActor` (the class is), matching the debug provider
+    // closure types AppInfoView expects.
+
+    private var bleService: BLEService? {
+        chatViewModel.meshService as? BLEService
+    }
+
+    func debugConnectionRows() -> [BLEService.DebugPeerConnectionRow] {
+        bleService?.debugConnectionRows() ?? []
+    }
+
+    func debugTrafficSnapshot() -> BLEService.DebugTrafficSnapshot? {
+        bleService?.debugTrafficSnapshot()
+    }
+
+    func debugScanResultRows() -> [BLEConnectionScheduler<CBPeripheral>.DebugScanResultRow] {
+        bleService?.debugScanResultRows() ?? []
+    }
+
+    func debugSyncConfig() -> GossipSyncManager.Config? {
+        bleService?.debugSyncConfig()
+    }
+
+    var debugLogStore: DebugLogStore? {
+        bleService?.debugLogStore
+    }
+
+    /// Staged for the debug pane's (currently deferred) live-RSSI poller; see
+    /// Task 9's report for why live polling is not yet wired.
+    func debugConnectedPeripherals() -> [CBPeripheral] {
+        bleService?.connectedPeripherals() ?? []
+    }
+
     func triggerScreenshotPrivacyWarning() {
         showScreenshotPrivacyWarning = true
     }

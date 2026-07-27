@@ -745,6 +745,24 @@ final class BLEService: NSObject {
         )
     }
 
+    /// Currently-connected peripherals, for the debug pane (Task 9). Follows
+    /// the same `readLinkState` queue-hop as the other debug accessors, so it
+    /// is safe to call from the main actor. Staged for the debug pane's RSSI
+    /// poller; see the RSSI-forwarding gap noted in Task 9's report.
+    func connectedPeripherals() -> [CBPeripheral] {
+        readLinkState { store in
+            store.peripheralStates.filter(\.isConnected).map(\.peripheral)
+        }
+    }
+
+    /// Read-only view of the live gossip-sync configuration for the debug
+    /// pane (Task 9). Nil before the sync manager is created (services not
+    /// started). Mirrors the existing `gossipSyncManager?.` touch points in
+    /// this file; the returned `Config` is an immutable value snapshot.
+    func debugSyncConfig() -> GossipSyncManager.Config? {
+        gossipSyncManager?.currentConfig
+    }
+
     // MARK: Identity
 
     /// Derived from the Noise identity fingerprint; rotated only via

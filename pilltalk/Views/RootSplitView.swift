@@ -78,7 +78,13 @@ struct RootSplitView: View {
         case .settings:
             AppInfoView(
                 topologyProvider: { appChromeModel.meshTopologyDisplayModel() },
-                onPanicWipe: { appChromeModel.panicClearAllData() }
+                onPanicWipe: { appChromeModel.panicClearAllData() },
+                debugConnectionRowsProvider: { appChromeModel.debugConnectionRows() },
+                debugTrafficSnapshotProvider: { appChromeModel.debugTrafficSnapshot() },
+                debugScanResultRowsProvider: { appChromeModel.debugScanResultRows() },
+                debugSyncConfigProvider: { appChromeModel.debugSyncConfig() },
+                debugLogStore: appChromeModel.debugLogStore,
+                debugRSSIPeripheralsProvider: { appChromeModel.debugConnectedPeripherals() }
             )
             .environmentObject(locationChannelsModel)
         }

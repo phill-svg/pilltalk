@@ -1,3 +1,4 @@
+import CoreBluetooth
 import SwiftUI
 
 /// The sheet behind the "pilltalk/" logo: a segmented Settings/Info surface.
@@ -17,6 +18,26 @@ struct AppInfoView: View {
     /// zone entirely.
     var onPanicWipe: (@MainActor () -> Void)?
 
+    // MARK: - Debug pane wiring (Task 9)
+    // Nil (previews, missing wiring) hides the whole Debug pane — the same
+    // nil-hides-the-feature convention as topologyProvider/onPanicWipe. The
+    // segment only appears when `debugConnectionRowsProvider` is wired. All
+    // are `@MainActor` closures, mirroring topologyProvider's proven pattern;
+    // the debug data types are BLE-specific (resolved via AppChromeModel's
+    // `as? BLEService` accessors — the debug methods are not on `Transport`).
+    var debugConnectionRowsProvider: (@MainActor () -> [BLEService.DebugPeerConnectionRow])?
+    var debugTrafficSnapshotProvider: (@MainActor () -> BLEService.DebugTrafficSnapshot?)?
+    var debugScanResultRowsProvider: (@MainActor () -> [BLEConnectionScheduler<CBPeripheral>.DebugScanResultRow])?
+    var debugSyncConfigProvider: (@MainActor () -> GossipSyncManager.Config?)?
+    var debugLogStore: DebugLogStore?
+    /// Staged for a future live-RSSI poller. Live polling is deferred: under
+    /// this codebase's strict concurrency, the RSSI readings arrive on
+    /// `BLEService` (the `CBPeripheralDelegate`) with no sound path to forward
+    /// them into a UI-layer `@StateObject` poller, and there is no
+    /// peerID→peripheral mapping for display. See Task 9's report. Kept wired
+    /// so the plumbing is ready when that gap is closed.
+    var debugRSSIPeripheralsProvider: (@MainActor () -> [CBPeripheral])?
+
     @State private var showTopology = false
     @State private var liveVoiceEnabled = PTTSettings.liveVoiceEnabled
     @State private var locationNotesEnabled = LocationNotesSettings.enabled
@@ -30,9 +51,16 @@ struct AppInfoView: View {
     /// start, so surface the restart hint.
     @State private var showLanguageRestartNote = false
 
+    // Debug pane PIN gate (Task 9). `isDebugUnlocked` is not persisted, so the
+    // gate re-locks every time the sheet is recreated.
+    @State private var isDebugUnlocked = false
+    @State private var debugPinEntry = ""
+    @State private var showDebugPinError = false
+
     private enum Pane: String {
         case settings
         case info
+        case debug
     }
 
     private var selectedTheme: AppTheme {
@@ -257,6 +285,11 @@ struct AppInfoView: View {
         Picker(Strings.Settings.tabPickerLabel, selection: $selectedPane) {
             Text(Strings.Settings.tabInfo).tag(Pane.info)
             Text(Strings.Settings.tabSettings).tag(Pane.settings)
+            // Only when the debug providers are wired (nil-hides-the-feature),
+            // matching topologyProvider/onPanicWipe.
+            if debugConnectionRowsProvider != nil {
+                Text(verbatim: "debug").tag(Pane.debug)
+            }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -271,6 +304,8 @@ struct AppInfoView: View {
             settingsContent
         case .info:
             infoContent
+        case .debug:
+            debugContent
         }
     }
 
@@ -535,6 +570,15 @@ struct AppInfoView: View {
             .cornerRadius(8)
     }
 
+    /// A titled section: a `SectionHeader` above the padded card. Used by the
+    /// debug pane (the settings pane inlines this same header-over-card shape).
+    private func settingsCard<Content: View>(title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(verbatim: title)
+            settingsCard(content)
+        }
+    }
+
     /// A title+subtitle row driving an IRC-style on/off pill — the one
     /// toggle style every setting uses.
     private func settingToggle(title: Text, subtitle: Text, isOn: Binding<Bool>) -> some View {
@@ -549,6 +593,169 @@ struct AppInfoView: View {
             }
         }
         .toggleStyle(IRCToggleStyle(accent: palette.accent, onLabel: Strings.Settings.toggleOn, offLabel: Strings.Settings.toggleOff))
+    }
+
+    // MARK: - Debug pane (Task 9)
+
+    @ViewBuilder
+    private var debugContent: some View {
+        if isDebugUnlocked {
+            VStack(alignment: .leading, spacing: 24) {
+                if let topologyProvider {
+                    settingsCard(title: "mesh topology") {
+                        MeshTopologyView(provider: topologyProvider)
+                            .frame(height: 300)
+                    }
+                }
+
+                if let debugConnectionRowsProvider {
+                    settingsCard(title: "connections") {
+                        debugConnectionsSection(rows: debugConnectionRowsProvider())
+                    }
+                }
+
+                settingsCard(title: "max connections") {
+                    Text(verbatim: "central (outbound): \(TransportConfig.bleMaxCentralLinks)")
+                        .pilltalkFont(size: 12)
+                        .foregroundColor(textColor)
+                    Text(verbatim: "peripheral (inbound): \(TransportConfig.bleMaxPeripheralLinks)")
+                        .pilltalkFont(size: 12)
+                        .foregroundColor(textColor)
+                }
+
+                if let config = debugSyncConfigProvider?() {
+                    settingsCard(title: "sync settings") {
+                        Text(verbatim: "GCS max bytes: \(config.gcsMaxBytes)")
+                            .pilltalkFont(size: 12)
+                            .foregroundColor(textColor)
+                        Text(verbatim: "GCS target FPR: \(config.gcsTargetFpr)")
+                            .pilltalkFont(size: 12)
+                            .foregroundColor(textColor)
+                    }
+                }
+
+                if let snapshot = debugTrafficSnapshotProvider?() {
+                    settingsCard(title: "packet traffic") {
+                        debugTrafficSection(snapshot: snapshot)
+                    }
+                }
+
+                if let debugScanResultRowsProvider {
+                    settingsCard(title: "BLE scan results") {
+                        debugScanResultsSection(rows: debugScanResultRowsProvider())
+                    }
+                }
+
+                if let debugLogStore {
+                    settingsCard(title: "debug log") {
+                        DebugLogSection(store: debugLogStore)
+                    }
+                }
+            }
+            .padding()
+        } else {
+            debugPinEntryView
+        }
+    }
+
+    private var debugPinEntryView: some View {
+        VStack(spacing: 16) {
+            Text(verbatim: "enter PIN")
+                .pilltalkFont(size: 16, weight: .medium)
+                .foregroundColor(textColor)
+            SecureField("PIN", text: $debugPinEntry)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                #endif
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 160)
+                .onSubmit(attemptUnlock)
+            Button("unlock", action: attemptUnlock)
+                .buttonStyle(.borderedProminent)
+            if showDebugPinError {
+                Text(verbatim: "incorrect PIN")
+                    .foregroundColor(.red)
+                    .font(.caption)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func attemptUnlock() {
+        if DebugAccessGate.matches(pin: debugPinEntry) {
+            isDebugUnlocked = true
+            showDebugPinError = false
+        } else {
+            showDebugPinError = true
+        }
+        debugPinEntry = ""
+    }
+
+    @ViewBuilder
+    private func debugConnectionsSection(rows: [BLEService.DebugPeerConnectionRow]) -> some View {
+        if rows.isEmpty {
+            Text(verbatim: "no peers")
+                .pilltalkFont(size: 12)
+                .foregroundColor(secondaryTextColor)
+        } else {
+            ForEach(rows) { row in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: row.nickname.isEmpty ? String(row.peerID.id.prefix(8)) : row.nickname)
+                        .pilltalkFont(size: 12, weight: .semibold)
+                        .foregroundColor(textColor)
+                    Text(verbatim: "connected: \(row.isConnected ? "yes" : "no")  •  peripheral: \(row.hasPeripheral ? "yes" : "no")  •  central: \(row.hasCentral ? "yes" : "no")")
+                        .pilltalkFont(size: 11)
+                        .foregroundColor(secondaryTextColor)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func debugTrafficSection(snapshot: BLEService.DebugTrafficSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            debugTrafficRow(label: "sent", s: snapshot.sentLastSecond, m: snapshot.sentLastMinute, q: snapshot.sentLast15Minutes, t: snapshot.sentTotal)
+            debugTrafficRow(label: "received", s: snapshot.receivedLastSecond, m: snapshot.receivedLastMinute, q: snapshot.receivedLast15Minutes, t: snapshot.receivedTotal)
+            debugTrafficRow(label: "relayed", s: snapshot.relayedLastSecond, m: snapshot.relayedLastMinute, q: snapshot.relayedLast15Minutes, t: snapshot.relayedTotal)
+            Text(verbatim: "columns: 1s / 1m / 15m / total")
+                .pilltalkFont(size: 10)
+                .foregroundColor(secondaryTextColor)
+        }
+    }
+
+    private func debugTrafficRow(label: String, s: Int, m: Int, q: Int, t: Int) -> some View {
+        HStack {
+            Text(verbatim: label)
+                .pilltalkFont(size: 12, weight: .semibold)
+                .foregroundColor(textColor)
+            Spacer()
+            Text(verbatim: "\(s) / \(m) / \(q) / \(t)")
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(secondaryTextColor)
+        }
+    }
+
+    @ViewBuilder
+    private func debugScanResultsSection(rows: [BLEConnectionScheduler<CBPeripheral>.DebugScanResultRow]) -> some View {
+        if rows.isEmpty {
+            Text(verbatim: "no unconnected candidates")
+                .pilltalkFont(size: 12)
+                .foregroundColor(secondaryTextColor)
+        } else {
+            ForEach(rows) { row in
+                HStack {
+                    Text(verbatim: row.nickname.isEmpty ? String(row.id.prefix(8)) : row.nickname)
+                        .pilltalkFont(size: 12)
+                        .foregroundColor(textColor)
+                    Spacer()
+                    Text(verbatim: "\(row.rssi) dBm")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(secondaryTextColor)
+                }
+            }
+        }
     }
 
     // MARK: - Info pane
@@ -727,6 +934,46 @@ struct FeatureRow: View {
             }
 
             Spacer()
+        }
+    }
+}
+
+/// Debug log viewer (Task 9). Held as `@ObservedObject` so appended entries
+/// re-render live. Newest last, monospaced, with a Clear action.
+private struct DebugLogSection: View {
+    @ObservedObject var store: DebugLogStore
+    @ThemedPalette private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(verbatim: "\(store.entries.count) entries")
+                    .pilltalkFont(size: 11)
+                    .foregroundColor(palette.secondary)
+                Spacer()
+                Button("clear") { store.clear() }
+                    .buttonStyle(.plain)
+                    .pilltalkFont(size: 12)
+                    .foregroundColor(palette.accent)
+            }
+            if store.entries.isEmpty {
+                Text(verbatim: "no log entries")
+                    .pilltalkFont(size: 12)
+                    .foregroundColor(palette.secondary)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(store.entries) { entry in
+                            Text(verbatim: "\(entry.timestamp.formatted(date: .omitted, time: .standard)) [\(entry.category)] \(entry.message)")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(palette.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+                .frame(maxHeight: 240)
+            }
         }
     }
 }
