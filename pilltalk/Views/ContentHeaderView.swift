@@ -11,7 +11,6 @@ struct ContentHeaderView: View {
     @Environment(\.appTheme) private var theme
     @ThemedPalette private var palette
 
-    @Binding var showSidebar: Bool
     @Binding var showVerifySheet: Bool
     var isNicknameFieldFocused: FocusState<Bool>.Binding
 
@@ -256,7 +255,7 @@ struct ContentHeaderView: View {
 
                 Button(action: {
                     withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
-                        showSidebar.toggle()
+                        appChromeModel.selectedDestination = .nearby
                     }
                 }) {
                     HStack(spacing: 4) {

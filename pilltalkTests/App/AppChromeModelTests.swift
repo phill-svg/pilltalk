@@ -36,7 +36,6 @@ final class AppChromeModelTests: XCTestCase {
         let model = makeModel()
         model.presentAppInfo()
         XCTAssertEqual(model.selectedDestination, .settings)
-        XCTAssertTrue(model.isAppInfoPresented)
     }
 
     func test_shouldSuppressScreenshotNotification_trueWhenSettingsSelected() {

@@ -6,263 +6,12 @@ import UIKit
 import AppKit
 #endif
 
-struct ContentPeopleSheetView: View {
+struct ContentPrivateChatSheetView: View {
     @EnvironmentObject private var appChromeModel: AppChromeModel
     @EnvironmentObject private var privateConversationModel: PrivateConversationModel
     @EnvironmentObject private var verificationModel: VerificationModel
     @EnvironmentObject private var conversationUIModel: ConversationUIModel
 
-    @Binding var showSidebar: Bool
-    @Binding var messageText: String
-    @Binding var selectedMessageSender: String?
-    @Binding var selectedMessageSenderID: PeerID?
-    @Binding var imagePreviewURL: URL?
-    @Binding var windowCountPublic: Int
-    @Binding var windowCountPrivate: [PeerID: Int]
-    @Binding var isAtBottomPrivate: Bool
-    var isTextFieldFocused: FocusState<Bool>.Binding
-    @ObservedObject var voiceRecordingVM: VoiceRecordingViewModel
-    @Binding var autocompleteDebounceTimer: Timer?
-    @ThemedPalette private var palette
-
-    let headerHeight: CGFloat
-    let onSendMessage: () -> Void
-
-    #if os(iOS)
-    @Binding var showImagePicker: Bool
-    @Binding var imagePickerSourceType: UIImagePickerController.SourceType
-    #else
-    @Binding var showMacImagePicker: Bool
-    #endif
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if privateConversationModel.selectedPeerID != nil {
-                    #if os(iOS)
-                    ContentPrivateChatSheetView(
-                        showSidebar: $showSidebar,
-                        messageText: $messageText,
-                        selectedMessageSender: $selectedMessageSender,
-                        selectedMessageSenderID: $selectedMessageSenderID,
-                        imagePreviewURL: $imagePreviewURL,
-                        windowCountPublic: $windowCountPublic,
-                        windowCountPrivate: $windowCountPrivate,
-                        isAtBottomPrivate: $isAtBottomPrivate,
-                        isTextFieldFocused: isTextFieldFocused,
-                        voiceRecordingVM: voiceRecordingVM,
-                        autocompleteDebounceTimer: $autocompleteDebounceTimer,
-                        headerHeight: headerHeight,
-                        onSendMessage: onSendMessage,
-                        showImagePicker: $showImagePicker,
-                        imagePickerSourceType: $imagePickerSourceType
-                    )
-                    #else
-                    ContentPrivateChatSheetView(
-                        showSidebar: $showSidebar,
-                        messageText: $messageText,
-                        selectedMessageSender: $selectedMessageSender,
-                        selectedMessageSenderID: $selectedMessageSenderID,
-                        imagePreviewURL: $imagePreviewURL,
-                        windowCountPublic: $windowCountPublic,
-                        windowCountPrivate: $windowCountPrivate,
-                        isAtBottomPrivate: $isAtBottomPrivate,
-                        isTextFieldFocused: isTextFieldFocused,
-                        voiceRecordingVM: voiceRecordingVM,
-                        autocompleteDebounceTimer: $autocompleteDebounceTimer,
-                        headerHeight: headerHeight,
-                        onSendMessage: onSendMessage,
-                        showMacImagePicker: $showMacImagePicker
-                    )
-                    #endif
-                } else {
-                    ContentPeopleListView(
-                        showSidebar: $showSidebar
-                    )
-                }
-            }
-            .navigationDestination(isPresented: Binding(
-                get: { appChromeModel.showingFingerprintFor != nil && (showSidebar || privateConversationModel.selectedPeerID != nil) },
-                set: { isPresented in
-                    if !isPresented {
-                        appChromeModel.clearFingerprint()
-                    }
-                }
-            )) {
-                if let peerID = appChromeModel.showingFingerprintFor {
-                    FingerprintView(peerID: peerID)
-                        .environmentObject(verificationModel)
-                }
-            }
-        }
-        .themedSheetBackground()
-        .foregroundColor(palette.primary)
-        #if os(macOS)
-        .frame(minWidth: 420, minHeight: 520)
-        #endif
-        #if os(iOS)
-        .fullScreenCover(isPresented: Binding(
-            get: { showImagePicker && (showSidebar || privateConversationModel.selectedPeerID != nil) },
-            set: { newValue in
-                if !newValue {
-                    showImagePicker = false
-                }
-            }
-        )) {
-            ImagePickerView(sourceType: imagePickerSourceType) { image in
-                showImagePicker = false
-                conversationUIModel.processSelectedImage(image)
-            }
-            .ignoresSafeArea()
-        }
-        #endif
-        #if os(macOS)
-        .sheet(isPresented: $showMacImagePicker) {
-            MacImagePickerView { url in
-                showMacImagePicker = false
-                conversationUIModel.processSelectedImage(from: url)
-            }
-        }
-        #endif
-    }
-}
-
-private struct ContentPeopleListView: View {
-    @EnvironmentObject private var appChromeModel: AppChromeModel
-    @EnvironmentObject private var privateConversationModel: PrivateConversationModel
-    @EnvironmentObject private var verificationModel: VerificationModel
-    @EnvironmentObject private var conversationUIModel: ConversationUIModel
-    @EnvironmentObject private var locationChannelsModel: LocationChannelsModel
-    @EnvironmentObject private var peerListModel: PeerListModel
-    @Environment(\.dismiss) private var dismiss
-    @ThemedPalette private var palette
-
-    @Binding var showSidebar: Bool
-
-    @State private var showVerifySheet = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    Text(peopleSheetTitle)
-                        .pilltalkFont(size: 18)
-                        .foregroundColor(palette.primary)
-                    Spacer()
-                    if case .mesh = locationChannelsModel.selectedChannel {
-                        Button(action: { showVerifySheet = true }) {
-                            Image(systemName: "qrcode")
-                                .font(.pilltalkSystem(size: 14))
-                        }
-                        .buttonStyle(.plain)
-                        // .help maps to the accessibility *hint* on iOS, so the
-                        // button still needs a spoken name.
-                        .accessibilityLabel(
-                            String(localized: "content.accessibility.verification", comment: "Accessibility label for the verification QR button")
-                        )
-                        .help(
-                            String(localized: "content.help.verification", comment: "Help text for verification button")
-                        )
-                    }
-                    SheetCloseButton {
-                        withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
-                            dismiss()
-                            showSidebar = false
-                            showVerifySheet = false
-                            privateConversationModel.endConversation()
-                        }
-                    }
-                }
-
-                // The mesh sheet titles its sections inline (#mesh / across
-                // the bridge / groups) — no subtitle or count up here.
-                // Location channels keep their geohash subtitle.
-                if case .location(let channel) = locationChannelsModel.selectedChannel {
-                    Text(verbatim: "#\(channel.geohash.lowercased())")
-                        .pilltalkFont(size: 12)
-                        .foregroundColor(palette.locationAccent)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-            .themedSurface()
-
-            ScrollView {
-                // spacing 0: every section supplies its own rhythm (header
-                // top 12 / bottom 4, rows vertical 4), so inter-child spacing
-                // here would make the first section's gap read differently.
-                VStack(alignment: .leading, spacing: 0) {
-                    if case .location = locationChannelsModel.selectedChannel {
-                        GeohashPeopleList(
-                            onTapPerson: {
-                                showSidebar = true
-                            }
-                        )
-                    } else {
-                        PeopleSectionHeader(
-                            icon: "antenna.radiowaves.left.and.right",
-                            iconColor: palette.accentBlue,
-                            title: "#mesh"
-                        )
-                        MeshPeerList(
-                            onTapPeer: { peerID in
-                                peerListModel.startConversation(with: peerID)
-                                showSidebar = true
-                            },
-                            onToggleFavorite: { peerID in
-                                peerListModel.toggleFavorite(peerID: peerID)
-                            },
-                            onShowFingerprint: { peerID in
-                                appChromeModel.showFingerprint(for: peerID)
-                            },
-                            onToggleBlock: { peer in
-                                if peer.isBlocked {
-                                    conversationUIModel.unblock(peerID: peer.peerID, displayName: peer.displayName)
-                                } else {
-                                    conversationUIModel.block(peerID: peer.peerID, displayName: peer.displayName)
-                                }
-                            }
-                        )
-                        // People in this area but beyond radio range, and
-                        // private groups: one sheet for the whole room.
-                        BridgePeopleList()
-                        GroupChatList(
-                            groups: peerListModel.groupRows,
-                            onTapGroup: { peerID in
-                                peerListModel.startConversation(with: peerID)
-                                showSidebar = true
-                            }
-                        )
-                    }
-                }
-                .padding(.top, 4)
-                // Full width even when every row is narrow (empty mesh, no
-                // groups): without this the VStack hugs its widest child and
-                // the ScrollView centers it — headers and empty states
-                // floated mid-screen on iPhone.
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .id(peerListModel.renderID)
-            }
-        }
-        .sheet(isPresented: $showVerifySheet) {
-            VerificationSheetView(isPresented: $showVerifySheet)
-                .environmentObject(verificationModel)
-        }
-    }
-}
-
-private extension ContentPeopleListView {
-    var peopleSheetTitle: String {
-        String(localized: "content.header.people", comment: "Title for the people list sheet").lowercased()
-    }
-
-}
-
-private struct ContentPrivateChatSheetView: View {
-    @EnvironmentObject private var privateConversationModel: PrivateConversationModel
-
-    @Binding var showSidebar: Bool
     @Binding var messageText: String
     @Binding var selectedMessageSender: String?
     @Binding var selectedMessageSenderID: PeerID?
@@ -287,121 +36,160 @@ private struct ContentPrivateChatSheetView: View {
     #endif
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let headerState = privateConversationModel.selectedHeaderState {
-                HStack(spacing: 12) {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
-                            privateConversationModel.endConversation()
+        NavigationStack {
+            VStack(spacing: 0) {
+                if let headerState = privateConversationModel.selectedHeaderState {
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
+                                privateConversationModel.endConversation()
+                            }
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .font(.pilltalkSystem(size: 12))
+                                .foregroundColor(palette.primary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.pilltalkSystem(size: 12))
-                            .foregroundColor(palette.primary)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(
-                        String(localized: "content.accessibility.back_to_main_chat", comment: "Accessibility label for returning to main chat")
-                    )
-
-                    Spacer(minLength: 0)
-
-                    HStack(spacing: 8) {
-                        ContentPrivateHeaderInfoButton(
-                            headerState: headerState,
-                            headerHeight: headerHeight
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(
+                            String(localized: "content.accessibility.back_to_main_chat", comment: "Accessibility label for returning to main chat")
                         )
 
-                        if headerState.supportsFavoriteToggle {
-                            Button(action: {
-                                privateConversationModel.toggleFavoriteForSelectedConversation()
-                            }) {
-                                Image(systemName: headerState.isFavorite ? "star.fill" : "star")
-                                    .font(.pilltalkSystem(size: 14))
-                                    .foregroundColor(headerState.isFavorite ? Color.yellow : palette.primary)
-                                    // Same visual box + 44pt hit target as SheetCloseButton.
-                                    .frame(width: 32, height: 32)
-                                    .contentShape(Rectangle().inset(by: -6))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(
-                                headerState.isFavorite
-                                ? String(localized: "content.accessibility.remove_favorite", comment: "Accessibility label to remove a favorite")
-                                : String(localized: "content.accessibility.add_favorite", comment: "Accessibility label to add a favorite")
+                        Spacer(minLength: 0)
+
+                        HStack(spacing: 8) {
+                            ContentPrivateHeaderInfoButton(
+                                headerState: headerState,
+                                headerHeight: headerHeight
                             )
+
+                            if headerState.supportsFavoriteToggle {
+                                Button(action: {
+                                    privateConversationModel.toggleFavoriteForSelectedConversation()
+                                }) {
+                                    Image(systemName: headerState.isFavorite ? "star.fill" : "star")
+                                        .font(.pilltalkSystem(size: 14))
+                                        .foregroundColor(headerState.isFavorite ? Color.yellow : palette.primary)
+                                        // Same visual box + 44pt hit target as SheetCloseButton.
+                                        .frame(width: 32, height: 32)
+                                        .contentShape(Rectangle().inset(by: -6))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(
+                                    headerState.isFavorite
+                                    ? String(localized: "content.accessibility.remove_favorite", comment: "Accessibility label to remove a favorite")
+                                    : String(localized: "content.accessibility.add_favorite", comment: "Accessibility label to add a favorite")
+                                )
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Spacer(minLength: 0)
+
+                        SheetCloseButton {
+                            withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
+                                privateConversationModel.endConversation()
+                            }
                         }
                     }
-                    .frame(maxWidth: .infinity)
-
-                    Spacer(minLength: 0)
-
-                    SheetCloseButton {
-                        withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
-                            privateConversationModel.endConversation()
-                            showSidebar = true
-                        }
-                    }
+                    // minHeight so scaled text at accessibility sizes grows the
+                    // bar instead of clipping inside it.
+                    .frame(minHeight: headerHeight)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
+                    .modifier(PrivateHeaderChrome())
                 }
-                // minHeight so scaled text at accessibility sizes grows the
-                // bar instead of clipping inside it.
-                .frame(minHeight: headerHeight)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 12)
-                .modifier(PrivateHeaderChrome())
+
+                MessageListView(
+                    privatePeer: privateConversationModel.selectedPeerID,
+                    isAtBottom: $isAtBottomPrivate,
+                    messageText: $messageText,
+                    selectedMessageSender: $selectedMessageSender,
+                    selectedMessageSenderID: $selectedMessageSenderID,
+                    imagePreviewURL: $imagePreviewURL,
+                    windowCountPublic: $windowCountPublic,
+                    windowCountPrivate: $windowCountPrivate,
+                    isTextFieldFocused: isTextFieldFocused
+                )
+                .themedSurface()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Swipe-right-to-leave lives on the message list only. On the
+                // whole sheet it preempted the composer's press-and-hold mic
+                // gesture (a high-priority ancestor drag cancels child gestures
+                // within milliseconds — same starvation as the image-reveal bug).
+                .highPriorityGesture(swipeToLeaveGesture)
+
+                if !theme.usesGlassChrome {
+                    Divider()
+                }
+
+                privacyCaption
+
+                #if os(iOS)
+                ContentComposerView(
+                    messageText: $messageText,
+                    isTextFieldFocused: isTextFieldFocused,
+                    voiceRecordingVM: voiceRecordingVM,
+                    autocompleteDebounceTimer: $autocompleteDebounceTimer,
+                    onSendMessage: onSendMessage,
+                    showImagePicker: $showImagePicker,
+                    imagePickerSourceType: $imagePickerSourceType
+                )
+                #else
+                ContentComposerView(
+                    messageText: $messageText,
+                    isTextFieldFocused: isTextFieldFocused,
+                    voiceRecordingVM: voiceRecordingVM,
+                    autocompleteDebounceTimer: $autocompleteDebounceTimer,
+                    onSendMessage: onSendMessage,
+                    showMacImagePicker: $showMacImagePicker
+                )
+                #endif
             }
-
-            MessageListView(
-                privatePeer: privateConversationModel.selectedPeerID,
-                isAtBottom: $isAtBottomPrivate,
-                messageText: $messageText,
-                selectedMessageSender: $selectedMessageSender,
-                selectedMessageSenderID: $selectedMessageSenderID,
-                imagePreviewURL: $imagePreviewURL,
-                windowCountPublic: $windowCountPublic,
-                windowCountPrivate: $windowCountPrivate,
-                showSidebar: $showSidebar,
-                isTextFieldFocused: isTextFieldFocused
-            )
-            .themedSurface()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Swipe-right-to-leave lives on the message list only. On the
-            // whole sheet it preempted the composer's press-and-hold mic
-            // gesture (a high-priority ancestor drag cancels child gestures
-            // within milliseconds — same starvation as the image-reveal bug).
-            .highPriorityGesture(swipeToLeaveGesture)
-
-            if !theme.usesGlassChrome {
-                Divider()
+            .themedSheetBackground()
+            .foregroundColor(palette.primary)
+            .navigationDestination(isPresented: Binding(
+                get: { appChromeModel.showingFingerprintFor != nil },
+                set: { isPresented in
+                    if !isPresented { appChromeModel.clearFingerprint() }
+                }
+            )) {
+                if let peerID = appChromeModel.showingFingerprintFor {
+                    FingerprintView(peerID: peerID)
+                        .environmentObject(verificationModel)
+                }
             }
-
-            privacyCaption
-
-            #if os(iOS)
-            ContentComposerView(
-                messageText: $messageText,
-                isTextFieldFocused: isTextFieldFocused,
-                voiceRecordingVM: voiceRecordingVM,
-                autocompleteDebounceTimer: $autocompleteDebounceTimer,
-                onSendMessage: onSendMessage,
-                showImagePicker: $showImagePicker,
-                imagePickerSourceType: $imagePickerSourceType
-            )
-            #else
-            ContentComposerView(
-                messageText: $messageText,
-                isTextFieldFocused: isTextFieldFocused,
-                voiceRecordingVM: voiceRecordingVM,
-                autocompleteDebounceTimer: $autocompleteDebounceTimer,
-                onSendMessage: onSendMessage,
-                showMacImagePicker: $showMacImagePicker
-            )
-            #endif
         }
-        .themedSheetBackground()
-        .foregroundColor(palette.primary)
+        // Image-picker presentation moved here from the deleted people-sheet
+        // wrapper: it must present from within the sheet's own hierarchy (a
+        // second modal from ContentView while it is already presenting this
+        // sheet would not appear).
+        #if os(iOS)
+        .fullScreenCover(isPresented: Binding(
+            get: { showImagePicker },
+            set: { newValue in
+                if !newValue {
+                    showImagePicker = false
+                }
+            }
+        )) {
+            ImagePickerView(sourceType: imagePickerSourceType) { image in
+                showImagePicker = false
+                conversationUIModel.processSelectedImage(image)
+            }
+            .ignoresSafeArea()
+        }
+        #endif
+        #if os(macOS)
+        .sheet(isPresented: $showMacImagePicker) {
+            MacImagePickerView { url in
+                showMacImagePicker = false
+                conversationUIModel.processSelectedImage(from: url)
+            }
+        }
+        #endif
     }
 
     private var swipeToLeaveGesture: some Gesture {
@@ -411,7 +199,6 @@ private struct ContentPrivateChatSheetView: View {
                 let vertical = abs(value.translation.height)
                 guard horizontal > 80, vertical < 60 else { return }
                 withAnimation(.easeInOut(duration: TransportConfig.uiAnimationMediumSeconds)) {
-                    showSidebar = true
                     privateConversationModel.endConversation()
                 }
             }

@@ -121,8 +121,7 @@ private func installSmokeEnvironment<V: View>(
 }
 
 @MainActor
-private struct ContentPeopleSheetHarness: View {
-    @State private var showSidebar = true
+private struct ContentPrivateChatSheetHarness: View {
     @State private var messageText = ""
     @State private var selectedMessageSender: String?
     @State private var selectedMessageSenderID: PeerID?
@@ -142,8 +141,7 @@ private struct ContentPeopleSheetHarness: View {
 
     var body: some View {
         #if os(iOS)
-        ContentPeopleSheetView(
-            showSidebar: $showSidebar,
+        ContentPrivateChatSheetView(
             messageText: $messageText,
             selectedMessageSender: $selectedMessageSender,
             selectedMessageSenderID: $selectedMessageSenderID,
@@ -160,8 +158,7 @@ private struct ContentPeopleSheetHarness: View {
             imagePickerSourceType: $imagePickerSourceType
         )
         #else
-        ContentPeopleSheetView(
-            showSidebar: $showSidebar,
+        ContentPrivateChatSheetView(
             messageText: $messageText,
             selectedMessageSender: $selectedMessageSender,
             selectedMessageSenderID: $selectedMessageSenderID,
@@ -540,12 +537,12 @@ struct ViewSmokeTests {
         try? await Task.sleep(nanoseconds: 50_000_000)
 
         _ = mount(installSmokeEnvironment(ContentView(), featureModels: featureModels))
-        _ = mount(installSmokeEnvironment(ContentPeopleSheetHarness(), featureModels: featureModels))
+        _ = mount(installSmokeEnvironment(NearbyView(), featureModels: featureModels))
 
         featureModels.privateConversationModel.startConversation(with: peerID)
         try? await Task.sleep(nanoseconds: 50_000_000)
 
-        _ = mount(installSmokeEnvironment(ContentPeopleSheetHarness(), featureModels: featureModels))
+        _ = mount(installSmokeEnvironment(ContentPrivateChatSheetHarness(), featureModels: featureModels))
 
         #expect(featureModels.privateConversationModel.selectedPeerID == peerID)
         #expect(featureModels.privateConversationModel.selectedHeaderState?.headerPeerID == peerID)

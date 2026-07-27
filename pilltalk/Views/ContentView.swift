@@ -42,7 +42,6 @@ struct ContentView: View {
     @FocusState private var isTextFieldFocused: Bool
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.appTheme) private var appTheme
-    @State private var showSidebar = false
     @State private var selectedMessageSender: String?
     @State private var selectedMessageSenderID: PeerID?
     @FocusState private var isNicknameFieldFocused: Bool
@@ -100,25 +99,18 @@ struct ContentView: View {
         #if os(macOS)
         .frame(minWidth: 600, minHeight: 400)
         #endif
-        .onChange(of: selectedPrivatePeerID) { newValue in
-            if newValue != nil {
-                showSidebar = true
-            }
-        }
         .sheet(
             isPresented: Binding(
-                get: { showSidebar || selectedPrivatePeerID != nil },
+                get: { selectedPrivatePeerID != nil },
                 set: { isPresented in
                     if !isPresented {
-                        showSidebar = false
                         privateConversationModel.endConversation()
                     }
                 }
             )
         ) {
             #if os(iOS)
-            ContentPeopleSheetView(
-                showSidebar: $showSidebar,
+            ContentPrivateChatSheetView(
                 messageText: $messageText,
                 selectedMessageSender: $selectedMessageSender,
                 selectedMessageSenderID: $selectedMessageSenderID,
@@ -135,8 +127,7 @@ struct ContentView: View {
                 imagePickerSourceType: $imagePickerSourceType
             )
             #else
-            ContentPeopleSheetView(
-                showSidebar: $showSidebar,
+            ContentPrivateChatSheetView(
                 messageText: $messageText,
                 selectedMessageSender: $selectedMessageSender,
                 selectedMessageSenderID: $selectedMessageSenderID,
@@ -153,25 +144,9 @@ struct ContentView: View {
             )
             #endif
         }
-        .sheet(isPresented: $appChromeModel.isAppInfoPresented) {
-            AppInfoView(
-                topologyProvider: { appChromeModel.meshTopologyDisplayModel() },
-                onPanicWipe: { appChromeModel.panicClearAllData() }
-            )
-            .environmentObject(locationChannelsModel)
-        }
-        .sheet(isPresented: Binding(
-            get: { appChromeModel.showingFingerprintFor != nil && !showSidebar && selectedPrivatePeerID == nil },
-            set: { _ in appChromeModel.clearFingerprint() }
-        )) {
-            if let peerID = appChromeModel.showingFingerprintFor {
-                FingerprintView(peerID: peerID)
-                    .environmentObject(verificationModel)
-            }
-        }
         #if os(iOS)
         .fullScreenCover(isPresented: Binding(
-            get: { showImagePicker && !showSidebar && selectedPrivatePeerID == nil },
+            get: { showImagePicker && selectedPrivatePeerID == nil },
             set: { newValue in
                 if !newValue {
                     showImagePicker = false
@@ -187,7 +162,7 @@ struct ContentView: View {
         #endif
         #if os(macOS)
         .sheet(isPresented: Binding(
-            get: { showMacImagePicker && !showSidebar && selectedPrivatePeerID == nil },
+            get: { showMacImagePicker && selectedPrivatePeerID == nil },
             set: { newValue in
                 if !newValue {
                     showMacImagePicker = false
@@ -277,7 +252,6 @@ struct ContentView: View {
 
     private var headerView: some View {
         ContentHeaderView(
-            showSidebar: $showSidebar,
             showVerifySheet: $showVerifySheet,
             isNicknameFieldFocused: $isNicknameFieldFocused,
             headerHeight: headerHeight,
@@ -296,7 +270,6 @@ struct ContentView: View {
             imagePreviewURL: $imagePreviewURL,
             windowCountPublic: $windowCountPublic,
             windowCountPrivate: $windowCountPrivate,
-            showSidebar: $showSidebar,
             isTextFieldFocused: $isTextFieldFocused
         )
     }

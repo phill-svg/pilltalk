@@ -86,6 +86,17 @@ struct NearbyView: View {
                     }
                 }
             }
+            .navigationDestination(isPresented: Binding(
+                get: { appChromeModel.showingFingerprintFor != nil },
+                set: { isPresented in
+                    if !isPresented { appChromeModel.clearFingerprint() }
+                }
+            )) {
+                if let peerID = appChromeModel.showingFingerprintFor {
+                    FingerprintView(peerID: peerID)
+                        .environmentObject(verificationModel)
+                }
+            }
         }
         .sheet(isPresented: $showVerifySheet) {
             VerificationSheetView(isPresented: $showVerifySheet)

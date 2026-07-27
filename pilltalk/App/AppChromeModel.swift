@@ -15,7 +15,6 @@ final class AppChromeModel: ObservableObject {
     @Published private(set) var hasUnreadPrivateMessages = false
     @Published var nickname: String
     @Published var showingFingerprintFor: PeerID?
-    @Published var isAppInfoPresented = false
     @Published var isLocationChannelsSheetPresented = false
     @Published var isNoticesSheetPresented = false
     /// When the sheet is opened for "notes left here" (empty mesh timeline),
@@ -44,7 +43,7 @@ final class AppChromeModel: ObservableObject {
     }
 
     var shouldSuppressScreenshotNotification: Bool {
-        isLocationChannelsSheetPresented || isAppInfoPresented || selectedDestination == .settings
+        isLocationChannelsSheetPresented || selectedDestination == .settings
     }
 
     func setNickname(_ nickname: String) {
@@ -74,7 +73,6 @@ final class AppChromeModel: ObservableObject {
     }
 
     func presentAppInfo() {
-        isAppInfoPresented = true
         selectedDestination = .settings
     }
 

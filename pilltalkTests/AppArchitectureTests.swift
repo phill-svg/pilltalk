@@ -450,7 +450,7 @@ struct AppArchitectureTests {
         chromeModel.triggerScreenshotPrivacyWarning()
 
         #expect(chromeModel.showingFingerprintFor == peerID)
-        #expect(chromeModel.isAppInfoPresented)
+        #expect(chromeModel.selectedDestination == .settings)
         #expect(chromeModel.shouldSuppressScreenshotNotification)
         #expect(chromeModel.showScreenshotPrivacyWarning)
 

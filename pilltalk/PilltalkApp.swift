@@ -30,7 +30,7 @@ struct PilltalkApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootSplitView()
                 .environment(\.appTheme, AppTheme(rawValue: appThemeRawValue) ?? .matrix)
                 .environmentObject(runtime.publicChatModel)
                 .environmentObject(runtime.privateInboxModel)

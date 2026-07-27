@@ -415,7 +415,7 @@ private extension AppRuntime {
             return
         }
 
-        if appChromeModel.isAppInfoPresented {
+        if appChromeModel.selectedDestination == .settings {
             return
         }
 
