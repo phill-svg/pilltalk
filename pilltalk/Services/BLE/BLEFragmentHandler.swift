@@ -24,7 +24,27 @@ struct BLEFragmentHandlerEnvironment {
     /// (after self-fragment suppression and header validation). Defaults to a
     /// no-op so existing construction sites (e.g. unit tests) that don't care
     /// about traffic counting compile unchanged; `BLEService` wires the real one.
-    let recordFragmentReceived: () -> Void = {}
+    let recordFragmentReceived: () -> Void
+
+    /// Explicit init (not the synthesized memberwise one): CI caught that a
+    /// stored property's default value alone does not make it optional at
+    /// existing call sites here, so `recordFragmentReceived` needs a real
+    /// default parameter value on a hand-written initializer.
+    init(
+        localPeerID: @escaping () -> PeerID,
+        trackPacketSeen: @escaping (PilltalkPacket) -> Void,
+        appendFragment: @escaping (BLEFragmentHeader) -> BLEFragmentAssemblyBuffer.AppendResult,
+        isAcceptedIngressPayload: @escaping (_ packet: PilltalkPacket, _ innerSender: PeerID) -> Bool,
+        processReassembledPacket: @escaping (_ packet: PilltalkPacket, _ from: PeerID) -> Void,
+        recordFragmentReceived: @escaping () -> Void = {}
+    ) {
+        self.localPeerID = localPeerID
+        self.trackPacketSeen = trackPacketSeen
+        self.appendFragment = appendFragment
+        self.isAcceptedIngressPayload = isAcceptedIngressPayload
+        self.processReassembledPacket = processReassembledPacket
+        self.recordFragmentReceived = recordFragmentReceived
+    }
 }
 
 /// Orchestrates inbound fragments: self-fragment suppression, gossip tracking,
