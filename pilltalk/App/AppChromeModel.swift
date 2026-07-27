@@ -3,6 +3,13 @@ import Combine
 import CoreBluetooth
 import Foundation
 
+enum AppDestination: Hashable {
+    case chats
+    case nearby
+    case groups
+    case settings
+}
+
 @MainActor
 final class AppChromeModel: ObservableObject {
     @Published private(set) var hasUnreadPrivateMessages = false
@@ -18,6 +25,7 @@ final class AppChromeModel: ObservableObject {
     @Published var bluetoothAlertMessage = ""
     @Published var bluetoothState: CBManagerState = .unknown
     @Published var showScreenshotPrivacyWarning = false
+    @Published var selectedDestination: AppDestination = .chats
 
     private let chatViewModel: ChatViewModel
     private var cancellables = Set<AnyCancellable>()
@@ -36,7 +44,7 @@ final class AppChromeModel: ObservableObject {
     }
 
     var shouldSuppressScreenshotNotification: Bool {
-        isLocationChannelsSheetPresented || isAppInfoPresented
+        isLocationChannelsSheetPresented || isAppInfoPresented || selectedDestination == .settings
     }
 
     func setNickname(_ nickname: String) {
@@ -67,6 +75,7 @@ final class AppChromeModel: ObservableObject {
 
     func presentAppInfo() {
         isAppInfoPresented = true
+        selectedDestination = .settings
     }
 
     func presentNotices(geoTab: Bool = false) {
