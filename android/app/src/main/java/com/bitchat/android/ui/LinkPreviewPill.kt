@@ -45,8 +45,8 @@ fun LinkPreviewPill(
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
-    // iOS-style colors
-    val textColor = if (isDark) Color.Green else Color(red = 0f, green = 0.5f, blue = 0f)
+    // Liquid-glass accent colors
+    val textColor = colorScheme.primary
     val backgroundColor = if (isDark) Color.Gray.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.08f)
     val borderColor = textColor.copy(alpha = 0.3f)
     

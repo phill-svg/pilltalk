@@ -70,7 +70,7 @@ fun SecurityVerificationSheet(
     val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
 
     val isDark = isSystemInDarkTheme()
-    val accent = if (isDark) Color.Green else Color(0xFF008000)
+    val accent = MaterialTheme.colorScheme.primary
     val boxColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f)
     val peerHexRegex = remember { Regex("^[0-9a-fA-F]{16}$") }
 

@@ -52,8 +52,8 @@ fun LocationNotesSheet(
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
     
-    // iOS color scheme
-    val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
+    // Liquid-glass accent color
+    val accentGreen = MaterialTheme.colorScheme.primary
     
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }

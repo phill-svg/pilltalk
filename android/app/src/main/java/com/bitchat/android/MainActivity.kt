@@ -157,7 +157,7 @@ class MainActivity : OrientationAwareActivity() {
             BitchatTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent
                 ) { innerPadding ->
                     OnboardingFlowScreen(modifier = Modifier
                         .fillMaxSize()

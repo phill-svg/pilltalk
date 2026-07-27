@@ -256,7 +256,7 @@ fun MessageInput(
         // Voice and image buttons when no text (only visible in Mesh chat)
         if (value.text.isEmpty() && showMediaButtons) {
             // Hold-to-record microphone
-            val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
+            val bg = colorScheme.primary.copy(alpha = 0.75f)
 
             // Ensure latest values are used when finishing recording
             val latestSelectedPeer = rememberUpdatedState(selectedPrivatePeer)
@@ -331,11 +331,9 @@ fun MessageInput(
                                 colorScheme.onSurface.copy(alpha = 0.3f)
                             } else if (selectedPrivatePeer != null || currentChannel != null) {
                                 // Orange for both private messages and channels when enabled
-                                Color(0xFFFF9500).copy(alpha = 0.75f)
-                            } else if (colorScheme.background == Color.Black) {
-                                Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
+                                colorScheme.secondary.copy(alpha = 0.75f)
                             } else {
-                                Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
+                                colorScheme.primary.copy(alpha = 0.75f)
                             },
                             shape = CircleShape
                         ),
@@ -348,13 +346,9 @@ fun MessageInput(
                         tint = if (!hasText) {
                             // Disabled state - muted grey icon
                             colorScheme.onSurface.copy(alpha = 0.5f)
-                        } else if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Black arrow on orange for both private and channel modes
-                            Color.Black
-                        } else if (colorScheme.background == Color.Black) {
-                            Color.Black // Black arrow on bright green in dark theme
                         } else {
-                            Color.White // White arrow on dark green in light theme
+                            // White arrow on the orange/blue accent circle
+                            Color.White
                         }
                     )
                 }
@@ -377,7 +371,7 @@ fun CommandSuggestionsBox(
         modifier = modifier
             .verticalScroll(rememberScrollState())
             .background(colorScheme.surface)
-            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
             .padding(vertical = 8.dp)
     ) {
         suggestions.forEach { suggestion: CommandSuggestion ->
@@ -459,7 +453,7 @@ fun MentionSuggestionsBox(
     Column(
         modifier = modifier
             .background(colorScheme.surface)
-            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
             .padding(vertical = 8.dp)
     ) {
         suggestions.forEach { suggestion: String ->

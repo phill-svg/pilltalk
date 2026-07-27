@@ -112,7 +112,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.background) // Extend background to fill entire screen including status bar
+            // Transparent so the LiquidGlassBackground gradient (set at the app root) shows through.
+            .background(Color.Transparent)
     ) {
         val headerHeight = 42.dp
         
