@@ -19,6 +19,12 @@ struct BLEFragmentHandlerEnvironment {
     let isAcceptedIngressPayload: (_ packet: PilltalkPacket, _ innerSender: PeerID) -> Bool
     /// Re-enters the receive pipeline with the reassembled packet (TTL already zeroed).
     let processReassembledPacket: (_ packet: PilltalkPacket, _ from: PeerID) -> Void
+    /// Records one inbound fragment for the debug pane's received-traffic counter.
+    /// Invoked once per genuine peer fragment that reaches the assembly buffer
+    /// (after self-fragment suppression and header validation). Defaults to a
+    /// no-op so existing construction sites (e.g. unit tests) that don't care
+    /// about traffic counting compile unchanged; `BLEService` wires the real one.
+    let recordFragmentReceived: () -> Void = {}
 }
 
 /// Orchestrates inbound fragments: self-fragment suppression, gossip tracking,
@@ -53,6 +59,13 @@ final class BLEFragmentHandler {
         }
 
         let assemblyResult = env.appendFragment(header)
+
+        // One genuine inbound fragment from a peer was received and handed to
+        // the assembly buffer. Counted here (not per reassembled packet) so the
+        // received tally mirrors the per-fragment "sent" counter. Self-fragments
+        // and packets without a valid fragment header returned early above and
+        // are correctly excluded.
+        env.recordFragmentReceived()
 
         logFragmentAssemblyResult(assemblyResult)
 

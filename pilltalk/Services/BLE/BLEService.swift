@@ -231,6 +231,16 @@ final class BLEService: NSObject {
     // File-transfer orchestration (queue hops stay in the environment closures)
     private lazy var fileTransferHandler = BLEFileTransferHandler(environment: makeFileTransferHandlerEnvironment())
 
+    // MARK: - Packet Traffic Counters
+    // Time-windowed sent/received/relayed tallies for the debug pane (Task 10
+    // reads these via debugTrafficSnapshot()). Each PacketTrafficCounter is
+    // internally thread-safe (own NSLock), so it is safe to increment from any
+    // of the BLE queues these fire on. Not `private`: read from outside via the
+    // snapshot accessor below.
+    let sentTrafficCounter = PacketTrafficCounter()
+    let receivedTrafficCounter = PacketTrafficCounter()
+    let relayedTrafficCounter = PacketTrafficCounter()
+
     // MARK: - Gossip Sync
     private var gossipSyncManager: GossipSyncManager?
     private let requestSyncManager = RequestSyncManager()
@@ -673,6 +683,40 @@ final class BLEService: NSObject {
                 hasCentral: linkState.hasCentral
             )
         }
+    }
+
+    /// Immutable value-type snapshot of the sent/received/relayed traffic
+    /// counters across all four windows, read by the debug pane (Task 10).
+    struct DebugTrafficSnapshot {
+        let sentLastSecond: Int
+        let sentLastMinute: Int
+        let sentLast15Minutes: Int
+        let sentTotal: Int
+        let receivedLastSecond: Int
+        let receivedLastMinute: Int
+        let receivedLast15Minutes: Int
+        let receivedTotal: Int
+        let relayedLastSecond: Int
+        let relayedLastMinute: Int
+        let relayedLast15Minutes: Int
+        let relayedTotal: Int
+    }
+
+    func debugTrafficSnapshot() -> DebugTrafficSnapshot {
+        DebugTrafficSnapshot(
+            sentLastSecond: sentTrafficCounter.counts(in: .lastSecond),
+            sentLastMinute: sentTrafficCounter.counts(in: .lastMinute),
+            sentLast15Minutes: sentTrafficCounter.counts(in: .last15Minutes),
+            sentTotal: sentTrafficCounter.counts(in: .total),
+            receivedLastSecond: receivedTrafficCounter.counts(in: .lastSecond),
+            receivedLastMinute: receivedTrafficCounter.counts(in: .lastMinute),
+            receivedLast15Minutes: receivedTrafficCounter.counts(in: .last15Minutes),
+            receivedTotal: receivedTrafficCounter.counts(in: .total),
+            relayedLastSecond: relayedTrafficCounter.counts(in: .lastSecond),
+            relayedLastMinute: relayedTrafficCounter.counts(in: .lastMinute),
+            relayedLast15Minutes: relayedTrafficCounter.counts(in: .last15Minutes),
+            relayedTotal: relayedTrafficCounter.counts(in: .total)
+        )
     }
 
     // MARK: Identity
@@ -4929,6 +4973,13 @@ extension BLEService {
 
         let sendFragment: (PilltalkPacket) -> Bool = { [weak self] fragmentPacket in
             guard let self else { return false }
+            // Count every fragment handed to the transport here — this closure
+            // is the single per-fragment send choke point, reached by BOTH the
+            // strict direct-link admission path and the broadcast work-item
+            // path below, so instrumenting it (rather than only the broadcast
+            // work item) captures direct-link fragment sends too, exactly once
+            // per fragment (admitAll invokes this closure once per fragment).
+            self.sentTrafficCounter.recordSent()
             if request.requireDirectPeerLink, let directedPeer = request.directedPeer {
                 return self.sendPacketDirected(
                     fragmentPacket,
@@ -5065,6 +5116,9 @@ extension BLEService {
             },
             processReassembledPacket: { [weak self] packet, peerID in
                 self?.handleReceivedPacket(packet, from: peerID)
+            },
+            recordFragmentReceived: { [weak self] in
+                self?.receivedTrafficCounter.recordReceived()
             }
         )
     }
@@ -5247,6 +5301,11 @@ extension BLEService {
             var relayPacket = packet
             relayPacket.ttl = decision.newTTL
             self.broadcastPacket(relayPacket)
+            // Count what actually went out: this work item only runs if it was
+            // not cancelled/removed from scheduledRelays before its delay
+            // elapsed, so counting after the broadcast reflects relays that
+            // truly transmitted, not merely relays that were decided/scheduled.
+            self.relayedTrafficCounter.recordRelayed()
         }
 
         collectionsQueue.async(flags: .barrier) { [weak self] in
