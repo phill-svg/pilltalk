@@ -928,6 +928,36 @@ struct BLEServiceCoreTests {
         #expect(!exceededBudget)
         #expect(outbound.count(ofType: .pong) == budget)
     }
+
+    @Test
+    func debugConnectionRows_mirrorsPeerSnapshotsWithNoLinkState() throws {
+        let ble = makeService()
+        #expect(ble.debugConnectionRows().isEmpty)
+
+        let alice = NoiseEncryptionService(keychain: MockKeychain())
+        let alicePeerID = PeerID(publicKey: alice.getStaticPublicKeyData())
+        // Reuses the same unsigned-leave preseeding pattern as
+        // `unsignedAndBadSignatureLeaveDoNotEvictOrRelayClaimedPeer`: the
+        // packet itself is inert (unsigned leave), but `_test_handlePacket`
+        // synchronously preseeds the sender as a known, connected peer.
+        let packet = makeLeavePacket(sender: alicePeerID, marker: "debug-rows")
+        ble._test_handlePacket(packet, fromPeerID: alicePeerID, signingPublicKey: alice.getSigningPublicKeyData())
+
+        let snapshots = ble.currentPeerSnapshots()
+        let rows = ble.debugConnectionRows()
+
+        #expect(rows.count == snapshots.count)
+        let row = try #require(rows.first { $0.peerID == alicePeerID })
+        let snapshot = try #require(snapshots.first { $0.peerID == alicePeerID })
+        #expect(row.id == alicePeerID.id)
+        #expect(row.nickname == snapshot.nickname)
+        #expect(row.isConnected == snapshot.isConnected)
+        // This test harness never initializes real CoreBluetooth managers
+        // (`initializeBluetoothManagers: false`), so no peripheral or central
+        // link is ever established — both roles should read false.
+        #expect(row.hasPeripheral == false)
+        #expect(row.hasCentral == false)
+    }
 }
 
 /// Thread-safe capture of packets leaving the service under test.

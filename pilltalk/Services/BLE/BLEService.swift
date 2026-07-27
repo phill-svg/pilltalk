@@ -635,7 +635,46 @@ final class BLEService: NSObject {
             peerRegistry.transportSnapshots(selfNickname: myNickname)
         }
     }
-    
+
+    struct DebugPeerConnectionRow: Identifiable, Equatable {
+        let peerID: PeerID
+        let nickname: String
+        let isConnected: Bool
+        let hasPeripheral: Bool
+        let hasCentral: Bool
+
+        var id: String { peerID.id }
+    }
+
+    /// Snapshot of connection state for the debug pane: role (are we the
+    /// peripheral, the central, or both?) alongside the existing connected/
+    /// nickname data already used for the peer list.
+    ///
+    /// Deliberately does *not* wrap the `readLinkState` calls in a
+    /// `collectionsQueue.sync` closure: `currentPeerSnapshots()` already
+    /// resolves and returns plain value-type snapshots via its own
+    /// `collectionsQueue.sync`, so by the time we map over them we are no
+    /// longer inside any `collectionsQueue` closure. This avoids nesting a
+    /// `bleQueue.sync` (via `readLinkState`) inside a `collectionsQueue.sync`
+    /// — see `cancelStalePendingConnects()` for an existing call path that
+    /// runs *on* `bleQueue` and does `collectionsQueue.sync(flags: .barrier)`;
+    /// pairing that with a `collectionsQueue.sync { ... bleQueue.sync ... }`
+    /// here would be a lock-order inversion between the two queues and could
+    /// deadlock under contention.
+    func debugConnectionRows() -> [DebugPeerConnectionRow] {
+        let snapshots = currentPeerSnapshots()
+        return snapshots.map { snapshot in
+            let linkState = readLinkState { $0.directLinkState(for: snapshot.peerID) }
+            return DebugPeerConnectionRow(
+                peerID: snapshot.peerID,
+                nickname: snapshot.nickname,
+                isConnected: snapshot.isConnected,
+                hasPeripheral: linkState.hasPeripheral,
+                hasCentral: linkState.hasCentral
+            )
+        }
+    }
+
     // MARK: Identity
 
     /// Derived from the Noise identity fingerprint; rotated only via
@@ -4350,7 +4389,7 @@ extension BLEService {
 
     // MARK: Link capability snapshots (thread-safe via bleQueue)
 
-    private func readLinkState<T>(_ body: (BLELinkStateStore) -> T) -> T {
+    func readLinkState<T>(_ body: (BLELinkStateStore) -> T) -> T {
         if DispatchQueue.getSpecific(key: bleQueueKey) != nil {
             return body(linkStateStore)
         } else {
@@ -4358,7 +4397,7 @@ extension BLEService {
         }
     }
 
-    private func snapshotDirectPeripheralState(for peerID: PeerID) -> BLEPeripheralLinkState? {
+    func snapshotDirectPeripheralState(for peerID: PeerID) -> BLEPeripheralLinkState? {
         readLinkState { $0.directPeripheralState(for: peerID) }
     }
 
@@ -4366,7 +4405,7 @@ extension BLEService {
         readLinkState(\.peripheralStates)
     }
 
-    private func snapshotSubscribedCentrals() -> BLESubscribedCentralSnapshot {
+    func snapshotSubscribedCentrals() -> BLESubscribedCentralSnapshot {
         readLinkState(\.subscribedCentralSnapshot)
     }
     
