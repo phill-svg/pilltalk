@@ -246,4 +246,92 @@ describe('RelayPool', () => {
     expect(pool.totalCount()).toBe(2);
     expect(pool.connectedCount()).toBe(1);
   });
+
+  it('publishes an event queued before any socket opened once one connects', () => {
+    const sockets: FakeWebSocket[] = [];
+    const factory: WebSocketFactory = () => {
+      const ws = new FakeWebSocket();
+      sockets.push(ws);
+      return ws;
+    };
+    const pool = new RelayPool(['wss://relay.example'], factory);
+    const event = fakeEvent();
+    pool.publish(event);
+
+    expect(sockets[0]!.sent).toHaveLength(0);
+    expect(pool.pendingPublishCount()).toBe(1);
+
+    sockets[0]!.open();
+
+    expect(sockets[0]!.sent.map((raw) => JSON.parse(raw))).toEqual([['EVENT', event]]);
+    expect(pool.pendingPublishCount()).toBe(0);
+  });
+
+  it('sends a queued event to every relay exactly once as each one connects', () => {
+    const sockets: FakeWebSocket[] = [];
+    const factory: WebSocketFactory = () => {
+      const ws = new FakeWebSocket();
+      sockets.push(ws);
+      return ws;
+    };
+    const pool = new RelayPool(['wss://a.example', 'wss://b.example'], factory);
+    const event = fakeEvent();
+    pool.publish(event);
+    sockets[0]!.open();
+    sockets[1]!.open();
+
+    expect(sockets[0]!.sent.filter((raw) => JSON.parse(raw)[0] === 'EVENT')).toHaveLength(1);
+    expect(sockets[1]!.sent.filter((raw) => JSON.parse(raw)[0] === 'EVENT')).toHaveLength(1);
+    expect(pool.pendingPublishCount()).toBe(0);
+  });
+
+  it('does not re-send to a relay that already received the event when a second one connects', () => {
+    const sockets: FakeWebSocket[] = [];
+    const factory: WebSocketFactory = () => {
+      const ws = new FakeWebSocket();
+      sockets.push(ws);
+      return ws;
+    };
+    const pool = new RelayPool(['wss://a.example', 'wss://b.example'], factory);
+    sockets[0]!.open();
+    pool.publish(fakeEvent());
+    sockets[1]!.open();
+
+    expect(sockets[0]!.sent.filter((raw) => JSON.parse(raw)[0] === 'EVENT')).toHaveLength(1);
+    expect(sockets[1]!.sent.filter((raw) => JSON.parse(raw)[0] === 'EVENT')).toHaveLength(1);
+  });
+
+  it('drops a queued event that has waited longer than the pending TTL', () => {
+    const sockets: FakeWebSocket[] = [];
+    const factory: WebSocketFactory = () => {
+      const ws = new FakeWebSocket();
+      sockets.push(ws);
+      return ws;
+    };
+    let now = 1_000_000;
+    const pool = new RelayPool(['wss://relay.example'], factory, () => now);
+    pool.publish(fakeEvent());
+    now += 60_001;
+    sockets[0]!.open();
+
+    expect(sockets[0]!.sent.filter((raw) => JSON.parse(raw)[0] === 'EVENT')).toHaveLength(0);
+    expect(pool.pendingPublishCount()).toBe(0);
+  });
+
+  it('bounds the pending publish queue', () => {
+    const factory: WebSocketFactory = () => new FakeWebSocket();
+    const pool = new RelayPool(['wss://relay.example'], factory);
+    for (let i = 0; i < 60; i++) pool.publish(fakeEvent({ id: String(i).padStart(64, '0') }));
+
+    expect(pool.pendingPublishCount()).toBe(50);
+  });
+
+  it('clears queued publishes on disconnect', () => {
+    const factory: WebSocketFactory = () => new FakeWebSocket();
+    const pool = new RelayPool(['wss://relay.example'], factory);
+    pool.publish(fakeEvent());
+    pool.disconnect();
+
+    expect(pool.pendingPublishCount()).toBe(0);
+  });
 });

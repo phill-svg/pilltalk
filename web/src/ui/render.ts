@@ -55,6 +55,16 @@ export function renderParticipantCount(el: HTMLElement, count: ParticipantCount)
   el.textContent = count.exact ? `${count.count} people` : '? people';
 }
 
+/**
+ * Shown in place of the participant count while no relay for the current room
+ * is connected. Without it, a send during that window looks identical to a
+ * successful one -- the message is queued and goes out on connect, but the
+ * user has no way to tell the difference from "the app is broken".
+ */
+export function renderRelayStatus(el: HTMLElement, queuedMessages: number): void {
+  el.textContent = queuedMessages > 0 ? `connecting… ${queuedMessages} queued` : 'connecting…';
+}
+
 export function renderTransport(el: HTMLElement, transport: DmTransport): void {
   el.textContent = transport;
 }
