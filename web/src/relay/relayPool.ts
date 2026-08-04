@@ -34,6 +34,20 @@ const OPEN = 1;
 const MAX_SEEN_IDS = 5000;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+// A publish made before any relay socket is open is held here and flushed as
+// each socket connects. Bounded so a permanently offline client can't grow
+// the queue without limit, and time-limited so a reconnect minutes later
+// doesn't resurrect long-stale messages the user has given up on.
+const MAX_PENDING_PUBLISHES = 50;
+const PENDING_PUBLISH_TTL_MS = 60_000;
+
+interface PendingPublish {
+  event: NostrEvent;
+  queuedAt: number;
+  /** Relay URLs this event has already been sent to, so a socket that opens
+   * later gets it exactly once and sockets that already got it don't. */
+  sentTo: Set<string>;
+}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
@@ -60,8 +74,9 @@ export class RelayPool implements RelayPoolLike {
   private subscriptions = new Map<string, Subscription>();
   private seenEventIds = new Set<string>();
   private nextSubId = 0;
+  private pendingPublishes: PendingPublish[] = [];
 
-  constructor(urls: string[], private wsFactory: WebSocketFactory) {
+  constructor(urls: string[], private wsFactory: WebSocketFactory, private now: () => number = () => Date.now()) {
     for (const url of urls) this.connect(url);
   }
 
@@ -70,6 +85,7 @@ export class RelayPool implements RelayPoolLike {
     ws.onopen = () => {
       this.reconnectAttempts.set(url, 0);
       for (const sub of this.subscriptions.values()) this.sendSubscribe(ws, sub);
+      this.flushPending(url, ws);
     };
     ws.onmessage = (ev) => this.handleMessage(ev.data);
     ws.onclose = () => this.scheduleReconnect(url);
@@ -129,11 +145,46 @@ export class RelayPool implements RelayPoolLike {
     };
   }
 
+  /**
+   * Publishes to every currently-open relay socket. Sockets that haven't
+   * finished connecting yet get the event when they open: without that, every
+   * message typed in the first second or two after opening the app (or right
+   * after switching rooms, which builds a fresh pool) was silently dropped --
+   * the send looked successful in the UI but nothing ever left the browser.
+   */
   publish(event: NostrEvent): void {
     const message = JSON.stringify(['EVENT', event]);
-    for (const ws of this.sockets.values()) {
-      if (ws.readyState === OPEN) ws.send(message);
+    const sentTo = new Set<string>();
+    for (const [url, ws] of this.sockets) {
+      if (ws.readyState === OPEN) {
+        ws.send(message);
+        sentTo.add(url);
+      }
     }
+    if (sentTo.size >= this.sockets.size) return;
+    this.pendingPublishes.push({ event, queuedAt: this.now(), sentTo });
+    if (this.pendingPublishes.length > MAX_PENDING_PUBLISHES) this.pendingPublishes.shift();
+  }
+
+  private flushPending(url: string, ws: MinimalWebSocket): void {
+    if (this.pendingPublishes.length === 0) return;
+    const cutoff = this.now() - PENDING_PUBLISH_TTL_MS;
+    const stillPending: PendingPublish[] = [];
+    for (const pending of this.pendingPublishes) {
+      if (pending.queuedAt < cutoff) continue;
+      if (!pending.sentTo.has(url) && ws.readyState === OPEN) {
+        ws.send(JSON.stringify(['EVENT', pending.event]));
+        pending.sentTo.add(url);
+      }
+      // Keep it queued only while some configured relay still hasn't had it.
+      if (pending.sentTo.size < this.sockets.size) stillPending.push(pending);
+    }
+    this.pendingPublishes = stillPending;
+  }
+
+  /** Events published while no relay was connected and not yet flushed. */
+  pendingPublishCount(): number {
+    return this.pendingPublishes.length;
   }
 
   connectedCount(): number {
@@ -152,6 +203,7 @@ export class RelayPool implements RelayPoolLike {
    * open WebSocket connections indefinitely. */
   disconnect(): void {
     this.subscriptions.clear();
+    this.pendingPublishes = [];
     for (const [url, ws] of this.sockets) {
       ws.onclose = null; // don't trigger scheduleReconnect on an intentional close
       ws.onerror = null;

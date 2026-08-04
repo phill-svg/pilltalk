@@ -1,6 +1,12 @@
 // web/src/ui/render.test.ts
 import { describe, it, expect } from 'vitest';
-import { appendGeohashMessage, appendDmMessage, renderParticipantCount, renderTransport } from './render';
+import {
+  appendGeohashMessage,
+  appendDmMessage,
+  renderParticipantCount,
+  renderRelayStatus,
+  renderTransport,
+} from './render';
 
 describe('render helpers', () => {
   it('appends a geohash message with nickname and content', () => {
@@ -45,6 +51,18 @@ describe('render helpers', () => {
     const el = document.createElement('span');
     renderParticipantCount(el, { count: 0, exact: false });
     expect(el.textContent).toBe('? people');
+  });
+
+  it('renders a plain connecting status when nothing is queued', () => {
+    const el = document.createElement('span');
+    renderRelayStatus(el, 0);
+    expect(el.textContent).toBe('connecting…');
+  });
+
+  it('reports how many messages are waiting on a relay connection', () => {
+    const el = document.createElement('span');
+    renderRelayStatus(el, 2);
+    expect(el.textContent).toBe('connecting… 2 queued');
   });
 
   it('renders the DM transport indicator', () => {

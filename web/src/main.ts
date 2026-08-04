@@ -7,7 +7,13 @@ import { closestRelays } from './relay/geoRelayDirectory';
 import { DmManager } from './dm/dmManager';
 import type { PeerConnectionLike } from './webrtc/signaling';
 import { loadContacts, upsertContact, findContact, type Contact } from './contacts/contacts';
-import { appendGeohashMessage, appendDmMessage, renderParticipantCount, renderTransport } from './ui/render';
+import {
+  appendGeohashMessage,
+  appendDmMessage,
+  renderParticipantCount,
+  renderRelayStatus,
+  renderTransport,
+} from './ui/render';
 import { renderContactsList } from './ui/contactsList';
 import { isPushSupported, isPushEnabled, enablePush, notifyPeer, registerServiceWorker } from './push/push';
 
@@ -35,13 +41,27 @@ function isValidGeohash(value: string): boolean {
   return GEOHASH_PATTERN.test(value);
 }
 
+// Geolocation's own `timeout` only starts once the user answers the
+// permission prompt, so an unanswered prompt leaves the promise pending
+// forever. Nothing may wait on this, but cap it anyway so the room picker
+// stops claiming to be looking for a location that will never arrive.
+const GEOLOCATION_TIMEOUT_MS = 10_000;
+
 async function currentPosition(): Promise<GeolocationCoordinates | null> {
   if (!navigator.geolocation) return null;
   return new Promise((resolve) => {
+    const done = (coords: GeolocationCoordinates | null) => resolve(coords);
+    const timer = setTimeout(() => done(null), GEOLOCATION_TIMEOUT_MS);
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos.coords),
-      () => resolve(null),
-      { timeout: 5000 },
+      (pos) => {
+        clearTimeout(timer);
+        done(pos.coords);
+      },
+      () => {
+        clearTimeout(timer);
+        done(null);
+      },
+      { timeout: GEOLOCATION_TIMEOUT_MS },
     );
   });
 }
@@ -69,7 +89,14 @@ function computeTiers(coords: GeolocationCoordinates): RoomTier[] {
   }));
 }
 
-async function main(): Promise<void> {
+// Every DOM listener below is wired synchronously and on purpose. An `await`
+// anywhere in this function delays -- or, if it rejects, permanently skips --
+// every listener after it, and an unwired <form> falls back to the browser's
+// default submit, which reloads the page and throws the typed message away.
+// That is exactly what "the app won't send messages" looks like from the
+// outside, so browser APIs that can hang or reject (push registration
+// lookups, geolocation) run as non-blocking, self-contained follow-ups.
+function main(): void {
   registerServiceWorker();
 
   const identity = loadOrCreateIdentity(window.localStorage);
@@ -135,16 +162,27 @@ async function main(): Promise<void> {
     notifyButton.disabled = true;
     notifyButton.textContent = 'Notify: unsupported';
   } else {
-    if (await isPushEnabled()) {
-      notifyButton.textContent = 'Notify: on';
-      notifyButton.classList.add('is-on');
-    }
     notifyButton.addEventListener('click', () => {
-      void enablePush(identity.publicKeyHex).then((enabled) => {
-        notifyButton.textContent = enabled ? 'Notify: on' : 'Notify: blocked';
-        notifyButton.classList.toggle('is-on', enabled);
-      });
+      void enablePush(identity.publicKeyHex)
+        .then((enabled) => {
+          notifyButton.textContent = enabled ? 'Notify: on' : 'Notify: blocked';
+          notifyButton.classList.toggle('is-on', enabled);
+        })
+        .catch(() => {
+          notifyButton.textContent = 'Notify: unavailable';
+        });
     });
+    // Reflecting an existing subscription is cosmetic: getRegistration() and
+    // getSubscription() both reject outright in some browsers (private
+    // windows, push-disabled builds), and that must not take the rest of the
+    // app down with it.
+    void isPushEnabled()
+      .then((enabled) => {
+        if (!enabled) return;
+        notifyButton.textContent = 'Notify: on';
+        notifyButton.classList.add('is-on');
+      })
+      .catch(() => {});
   }
 
   const pool = new RelayPool(RELAY_URLS, (url) => new WebSocket(url) as unknown as MinimalWebSocket);
@@ -163,11 +201,19 @@ async function main(): Promise<void> {
   let channel: GeohashChannel;
   let geoPool: RelayPool | null = null;
   let tiers: RoomTier[] = [];
+  // Set once the user picks a room or talks in the current one, so a late
+  // geolocation result can't yank them out of a conversation they started.
+  let roomChosenByUser = false;
 
   // Matches the native apps' GeoRelayDirectory count (TransportConfig.nostrGeoRelayCount).
   const GEO_RELAY_COUNT = 5;
 
   function updateChannelSignal(): void {
+    if (geoPool && geoPool.connectedCount() === 0) {
+      renderRelayStatus(participantCountEl, geoPool.pendingPublishCount());
+      channelSignalEl.dataset.level = '0';
+      return;
+    }
     const count = channel.getParticipantCount();
     renderParticipantCount(participantCountEl, count);
     channelSignalEl.dataset.level = count.exact ? String(Math.min(count.count, 4)) : 'unknown';
@@ -181,6 +227,7 @@ async function main(): Promise<void> {
       row.className = tier.geohash === activeGeohash ? 'room-tier-row is-active' : 'room-tier-row';
       row.innerHTML = `<span class="room-tier-name">${tier.label}</span><span class="room-tier-code">#${tier.geohash}</span>`;
       row.addEventListener('click', () => {
+        roomChosenByUser = true;
         joinChannel(tier.geohash);
         roomPickerBackdrop.hidden = true;
       });
@@ -214,9 +261,13 @@ async function main(): Promise<void> {
     updateChannelSignal();
   }
 
-  const position = await currentPosition();
-  tiers = position ? computeTiers(position) : [];
-  joinChannel(tiers.find((t) => t.key === 'neighborhood')?.geohash ?? DEFAULT_GEOHASH);
+  // Join something immediately so the room is live (and sendable) from the
+  // first frame; the located room replaces it below once coordinates arrive.
+  joinChannel(DEFAULT_GEOHASH);
+
+  // Relay connectivity and presence both change with no user event to hang a
+  // redraw off, so the room signal is refreshed on a timer.
+  setInterval(updateChannelSignal, 2000);
 
   roomPickerButton.addEventListener('click', () => {
     roomPickerBackdrop.hidden = false;
@@ -232,8 +283,10 @@ async function main(): Promise<void> {
     ev.preventDefault();
     const input = byId<HTMLInputElement>('geohash-input');
     if (!input.value.trim()) return;
+    roomChosenByUser = true;
     channel.sendMessage(input.value, nickname ?? identity.publicKeyHex.slice(0, 8));
     input.value = '';
+    updateChannelSignal(); // surface "queued" immediately if no relay is up yet
   });
 
   byId<HTMLFormElement>('room-switch-form').addEventListener('submit', (ev) => {
@@ -244,6 +297,7 @@ async function main(): Promise<void> {
       setTimeout(() => geohashLabelInput.classList.remove('is-invalid'), 900);
       return;
     }
+    roomChosenByUser = true;
     joinChannel(value);
     roomPickerBackdrop.hidden = true;
   });
@@ -375,6 +429,22 @@ async function main(): Promise<void> {
     wipeIdentity(window.localStorage);
     window.location.reload();
   });
+
+  // Deliberately last, deliberately not awaited: the permission prompt can sit
+  // unanswered indefinitely, and everything above has to work meanwhile.
+  void currentPosition()
+    .then((position) => {
+      if (!position) return;
+      tiers = computeTiers(position);
+      const local = tiers.find((t) => t.key === 'neighborhood')?.geohash;
+      if (!local) return;
+      if (roomChosenByUser) {
+        renderTierList(geohashLabelInput.value); // offer the located rooms without switching
+        return;
+      }
+      joinChannel(local);
+    })
+    .catch(() => {});
 }
 
-void main();
+main();
